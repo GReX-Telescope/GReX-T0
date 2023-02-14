@@ -2,6 +2,7 @@
 
 use crate::common::{Payload, Stokes, CHANNELS};
 use anyhow::anyhow;
+use arrayvec::ArrayVec;
 use log::info;
 use std::time::{Duration, Instant};
 use thingbuf::mpsc::blocking::{Receiver, Sender};
@@ -53,7 +54,7 @@ pub fn downsample_task(
                 .for_each(|v| *v /= local_downsamp_iters as f32);
 
             let mut slot = sender.send_ref()?;
-            slot.clone_from_slice(&downsamp_buf);
+            *slot = ArrayVec::from(downsamp_buf);
 
             // Then, use *this* average to save us some cycles for the monitoring
             monitor_buf
