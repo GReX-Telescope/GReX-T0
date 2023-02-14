@@ -96,7 +96,7 @@ pub fn dump_task(
         } else {
             // If we're not dumping, we're pushing data into the ringbuffer
             let pl = payload_reciever
-                .recv()
+                .recv_ref()
                 .ok_or_else(|| anyhow!("Channel closed"))?;
             let ring_ref = ring.next_push();
             ring_ref.clone_from(&pl);

@@ -62,7 +62,9 @@ pub fn dada_consumer(
         let mut block = data_writer.next().unwrap();
         loop {
             // Grab the next stokes parameters (already downsampled)
-            let mut stokes = stokes_rcv.recv().ok_or_else(|| anyhow!("Channel closed"))?;
+            let mut stokes = stokes_rcv
+                .recv_ref()
+                .ok_or_else(|| anyhow!("Channel closed"))?;
             debug_assert_eq!(stokes.len(), CHANNELS);
             // Timestamp first one
             if first_payload {
@@ -119,7 +121,9 @@ pub fn filterbank_consumer(
     let mut first_payload = true;
     loop {
         // Grab next stokes
-        let stokes = stokes_rcv.recv().ok_or_else(|| anyhow!("Channel closed"))?;
+        let stokes = stokes_rcv
+            .recv_ref()
+            .ok_or_else(|| anyhow!("Channel closed"))?;
         // Timestamp first one
         if first_payload {
             first_payload = false;

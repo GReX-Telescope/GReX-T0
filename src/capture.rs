@@ -207,14 +207,17 @@ pub fn decode_task(
     let mut first_packet = true;
     // Receive
     loop {
-        let payload = from_cap.recv().ok_or_else(|| anyhow!("Channel closed"))?;
-        // Decode
-        let pl = Box::new(Payload::from_bytes(&payload));
+        // Get next writeable slot
+        let mut slot = to_split.send_ref()?;
+        let payload = from_cap
+            .recv_ref()
+            .ok_or_else(|| anyhow!("Channel closed"))?;
+        // Decode into slot
+        **slot = Payload::from_bytes(&payload);
         if first_packet {
-            FIRST_PACKET.store(pl.count, Ordering::Relaxed);
+            FIRST_PACKET.store(slot.count, Ordering::Relaxed);
             first_packet = false;
         }
-        to_split.send(pl)?;
     }
 }
 
@@ -225,10 +228,20 @@ pub fn split_task(
 ) -> anyhow::Result<()> {
     info!("Starting split");
     loop {
-        let pl = from_decode
+        // Get next slot for downsampling
+        let mut slot = to_downsample.send_ref()?;
+        **slot = *from_decode
             .recv()
             .ok_or_else(|| anyhow!("Channel closed"))?;
-        to_downsample.send(pl.clone())?;
-        let _ = to_dumps.try_send(pl);
+        // Attempt to send ref
+        match to_dumps.try_send_ref() {
+            Ok(mut dump_slot) => **dump_slot = **slot,
+            Err(e) => match e {
+                thingbuf::mpsc::errors::TrySendError::Full(_) => continue,
+                thingbuf::mpsc::errors::TrySendError::Closed(_) => break,
+                _ => todo!(),
+            },
+        }
     }
+    Ok(())
 }

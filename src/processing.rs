@@ -30,7 +30,9 @@ pub fn downsample_task(
     let mut local_monitor_iters = 0;
 
     loop {
-        let payload = receiver.recv().ok_or_else(|| anyhow!("Channel closed"))?;
+        let payload = receiver
+            .recv_ref()
+            .ok_or_else(|| anyhow!("Channel closed"))?;
         // Compute Stokes I
         let stokes = payload.stokes_i();
         debug_assert_eq!(stokes.len(), CHANNELS);
@@ -45,11 +47,13 @@ pub fn downsample_task(
 
         // Check for downsample exit condition
         if local_downsamp_iters == downsamp_iters {
-            // Write averages directly into it
+            // Write averages
             downsamp_buf
                 .iter_mut()
                 .for_each(|v| *v /= local_downsamp_iters as f32);
-            sender.send(downsamp_buf.try_into().unwrap())?;
+
+            let mut slot = sender.send_ref()?;
+            slot.clone_from_slice(&downsamp_buf);
 
             // Then, use *this* average to save us some cycles for the monitoring
             monitor_buf
