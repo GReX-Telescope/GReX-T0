@@ -7,11 +7,11 @@ use grex_t0::{
     dumps::{self, DumpRing},
     exfil,
     fpga::Device,
-    injection, monitoring, processing,
+    monitoring,
 };
 use log::{info, LevelFilter};
 use rsntp::SntpClient;
-use std::time::Duration;
+
 use tokio::try_join;
 
 // Setup the static channels
@@ -56,15 +56,10 @@ async fn main() -> anyhow::Result<()> {
 
     // Fast path channels
     let (cap_s, cap_r) = bounded(FAST_PATH_CHANNEL_SIZE);
-    let (dump_s, dump_r) = bounded(FAST_PATH_CHANNEL_SIZE);
-    // These may not need to be static
-    let (ex_s, ex_r) = bounded(FAST_PATH_CHANNEL_SIZE);
-    let (inject_s, inject_r) = bounded(FAST_PATH_CHANNEL_SIZE);
 
     // Less important channels, these don't have to be static
     let (trig_s, trig_r) = bounded(5);
     let (stat_s, stat_r) = bounded(100);
-    let (avg_s, avg_r) = bounded(100);
 
     // Start the threads
     macro_rules! thread_spawn {
@@ -83,39 +78,8 @@ async fn main() -> anyhow::Result<()> {
         }
     // Spawn all the threads
     let handles = thread_spawn!(
-        ("collect", monitoring::monitor_task(device, stat_r, avg_r)),
-        (
-            "injection",
-            injection::pulse_injection_task(
-                inject_r,
-                ex_s,
-                Duration::from_secs(cli.injection_cadence),
-                cli.pulse_path
-            )
-        ),
-        (
-            "downsample",
-            processing::downsample_task(cap_r, inject_s, dump_s, avg_s, cli.downsample_power)
-        ),
-        ("dump", dumps::dump_task(ring, dump_r, trig_r, packet_start)),
-        (
-            "exfil",
-            match cli.exfil {
-                Some(e) => match e {
-                    args::Exfil::Psrdada { key, samples } => exfil::dada_consumer(
-                        key,
-                        ex_r,
-                        psc,
-                        2usize.pow(cli.downsample_power),
-                        samples
-                    ),
-                    args::Exfil::Filterbank =>
-                        exfil::filterbank_consumer(ex_r, psc, 2usize.pow(cli.downsample_power)),
-                },
-                None => exfil::dummy_consumer(ex_r),
-            }
-        ),
-        ("capture", capture::cap_task(cli.cap_port, cap_s, stat_s))
+        ("capture", capture::cap_task(cli.cap_port, cap_s, stat_s)),
+        ("consume", exfil::dummy_consumer(cap_r))
     );
 
     let _ = try_join!(

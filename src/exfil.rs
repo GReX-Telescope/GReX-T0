@@ -20,7 +20,7 @@ fn heimdall_timestamp(time: &Epoch) -> String {
 }
 
 /// A consumer that just grabs stokes off the channel and drops them
-pub fn dummy_consumer(stokes_rcv: Receiver<Stokes>) -> anyhow::Result<()> {
+pub fn dummy_consumer<T>(stokes_rcv: Receiver<T>) -> anyhow::Result<()> {
     info!("Starting dummy consumer");
     while stokes_rcv.recv().is_ok() {}
     Ok(())
