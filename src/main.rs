@@ -1,9 +1,9 @@
 use anyhow::bail;
 pub use clap::Parser;
 use core_affinity::CoreId;
+use crossbeam_channel::bounded;
 use grex_t0::{
     args, capture,
-    common::Payload,
     dumps::{self, DumpRing},
     exfil,
     fpga::Device,
@@ -12,13 +12,10 @@ use grex_t0::{
 use log::{info, LevelFilter};
 use rsntp::SntpClient;
 use std::time::Duration;
-use thingbuf::mpsc::blocking::{channel, StaticChannel};
 use tokio::try_join;
 
 // Setup the static channels
 const FAST_PATH_CHANNEL_SIZE: usize = 1024;
-static CAPTURE_CHAN: StaticChannel<Payload, FAST_PATH_CHANNEL_SIZE> = StaticChannel::new();
-static DUMP_CHAN: StaticChannel<Payload, FAST_PATH_CHANNEL_SIZE> = StaticChannel::new();
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
@@ -58,16 +55,16 @@ async fn main() -> anyhow::Result<()> {
     let ring = DumpRing::new(cli.vbuf_power);
 
     // Fast path channels
-    let (cap_s, cap_r) = CAPTURE_CHAN.split();
-    let (dump_s, dump_r) = DUMP_CHAN.split();
+    let (cap_s, cap_r) = bounded(FAST_PATH_CHANNEL_SIZE);
+    let (dump_s, dump_r) = bounded(FAST_PATH_CHANNEL_SIZE);
     // These may not need to be static
-    let (ex_s, ex_r) = channel(FAST_PATH_CHANNEL_SIZE);
-    let (inject_s, inject_r) = channel(FAST_PATH_CHANNEL_SIZE);
+    let (ex_s, ex_r) = bounded(FAST_PATH_CHANNEL_SIZE);
+    let (inject_s, inject_r) = bounded(FAST_PATH_CHANNEL_SIZE);
 
     // Less important channels, these don't have to be static
-    let (trig_s, trig_r) = channel(5);
-    let (stat_s, stat_r) = channel(100);
-    let (avg_s, avg_r) = channel(100);
+    let (trig_s, trig_r) = bounded(5);
+    let (stat_s, stat_r) = bounded(100);
+    let (avg_s, avg_r) = bounded(100);
 
     // Start the threads
     macro_rules! thread_spawn {

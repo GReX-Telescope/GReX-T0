@@ -1,14 +1,13 @@
 use crate::capture::FIRST_PACKET;
 use crate::common::{Stokes, CHANNELS, PACKET_CADENCE};
-use anyhow::anyhow;
 use byte_slice_cast::AsByteSlice;
+use crossbeam_channel::Receiver;
 use hifitime::prelude::*;
 use lending_iterator::prelude::*;
 use log::{debug, info};
 use psrdada::client::DadaClient;
 use sigproc_filterbank::write::WriteFilterbank;
 use std::{collections::HashMap, io::Write, str::FromStr, sync::atomic::Ordering};
-use thingbuf::mpsc::blocking::Receiver;
 
 // Set by hardware (in MHz)
 const LOWBAND_MID_FREQ: f64 = 1_280.061_035_16;
@@ -23,7 +22,7 @@ fn heimdall_timestamp(time: &Epoch) -> String {
 /// A consumer that just grabs stokes off the channel and drops them
 pub fn dummy_consumer(stokes_rcv: Receiver<Stokes>) -> anyhow::Result<()> {
     info!("Starting dummy consumer");
-    while stokes_rcv.recv_ref().is_some() {}
+    while stokes_rcv.recv().is_ok() {}
     Ok(())
 }
 
@@ -62,9 +61,7 @@ pub fn dada_consumer(
         let mut block = data_writer.next().unwrap();
         loop {
             // Grab the next stokes parameters (already downsampled)
-            let mut stokes = stokes_rcv
-                .recv_ref()
-                .ok_or_else(|| anyhow!("Channel closed"))?;
+            let mut stokes = stokes_rcv.recv()?;
             debug_assert_eq!(stokes.len(), CHANNELS);
             // Timestamp first one
             if first_payload {
@@ -121,9 +118,7 @@ pub fn filterbank_consumer(
     let mut first_payload = true;
     loop {
         // Grab next stokes
-        let stokes = stokes_rcv
-            .recv_ref()
-            .ok_or_else(|| anyhow!("Channel closed"))?;
+        let stokes = stokes_rcv.recv()?;
         // Timestamp first one
         if first_payload {
             first_payload = false;

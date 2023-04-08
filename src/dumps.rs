@@ -1,12 +1,11 @@
 //! Dumping voltage data
 
 use crate::common::{Payload, CHANNELS};
-use anyhow::anyhow;
+use crossbeam_channel::{Receiver, Sender};
 use hdf5::File;
 use hifitime::prelude::*;
 use log::{info, warn};
 use std::{net::SocketAddr, str::FromStr};
-use thingbuf::mpsc::blocking::{Receiver, Sender, StaticReceiver};
 use tokio::net::UdpSocket;
 
 pub struct DumpRing {
@@ -80,7 +79,7 @@ pub async fn trigger_task(sender: Sender<()>, port: u16) -> anyhow::Result<()> {
 
 pub fn dump_task(
     mut ring: DumpRing,
-    payload_reciever: StaticReceiver<Payload>,
+    payload_reciever: Receiver<Box<Payload>>,
     signal_reciever: Receiver<()>,
     start_time: Epoch,
 ) -> anyhow::Result<()> {
@@ -95,9 +94,7 @@ pub fn dump_task(
             }
         } else {
             // If we're not dumping, we're pushing data into the ringbuffer
-            let pl = payload_reciever
-                .recv_ref()
-                .ok_or_else(|| anyhow!("Channel closed"))?;
+            let pl = payload_reciever.recv()?;
             let ring_ref = ring.next_push();
             ring_ref.clone_from(&pl);
         }

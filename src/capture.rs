@@ -1,6 +1,7 @@
 //! Logic for capturing raw packets from the NIC, parsing them into payloads, and sending them to other processing threads
 
 use crate::common::Payload;
+use crossbeam_channel::Sender;
 use log::{error, info, warn};
 use socket2::{Domain, Socket, Type};
 use std::net::UdpSocket;
@@ -10,7 +11,6 @@ use std::{
     sync::atomic::AtomicU64,
     time::{Duration, Instant},
 };
-use thingbuf::mpsc::blocking::{Sender, StaticSender};
 
 /// Size of the packet count header
 const TIMESTAMP_SIZE: usize = 8;
@@ -90,7 +90,7 @@ impl Capture {
 
     pub fn start(
         &mut self,
-        payload_sender: StaticSender<Payload>,
+        payload_sender: Sender<Box<Payload>>,
         stats_send: Sender<Stats>,
         stats_polling_time: Duration,
     ) -> anyhow::Result<()> {
@@ -117,11 +117,11 @@ impl Capture {
                 self.first_payload = false;
                 self.next_expected_count = payload.count + 1;
                 // And send the first one
-                payload_sender.send(*payload)?;
+                payload_sender.send(Box::new(*payload))?;
             } else if payload.count == self.next_expected_count {
                 self.next_expected_count += 1;
                 // And send
-                payload_sender.send(*payload)?;
+                payload_sender.send(Box::new(*payload))?;
             } else if payload.count < self.next_expected_count {
                 // If the packet is from the past, we drop it
                 warn!("Anachronistic payload, dropping packet");
@@ -137,13 +137,13 @@ impl Capture {
                     // Before we do, though, drain the backlog, inserting dummy values for the missing chunks
                     for i in self.next_expected_count..payload.count {
                         match self.backlog.remove(&i) {
-                            Some(p) => payload_sender.send(p)?,
+                            Some(p) => payload_sender.send(Box::new(p))?,
                             None => {
                                 let dummy = Payload {
                                     count: i,
                                     ..Default::default()
                                 };
-                                payload_sender.send(dummy)?;
+                                payload_sender.send(Box::new(dummy))?;
                                 self.drops += 1;
                             }
                         }
@@ -154,7 +154,7 @@ impl Capture {
                     error!("Distant futuristic payload, starting over. This results in a gap in the timestream and shouldn't happen");
                     self.drops += self.backlog.len();
                     self.backlog.clear();
-                    payload_sender.send(*payload)?;
+                    payload_sender.send(Box::new(*payload))?;
                     self.next_expected_count = payload.count + 1;
                 }
             } else {
@@ -163,7 +163,7 @@ impl Capture {
             }
             // Always try to catch up with the backlog
             while let Some(pl) = self.backlog.remove(&self.next_expected_count) {
-                payload_sender.send(pl)?;
+                payload_sender.send(Box::new(pl))?;
                 self.next_expected_count += 1;
             }
         }
@@ -178,7 +178,7 @@ pub struct Stats {
 
 pub fn cap_task(
     port: u16,
-    cap_send: StaticSender<Payload>,
+    cap_send: Sender<Box<Payload>>,
     stats_send: Sender<Stats>,
 ) -> anyhow::Result<()> {
     info!("Starting capture task!");

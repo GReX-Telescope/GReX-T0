@@ -1,19 +1,18 @@
 //! Inter-thread processing (downsampling, etc)
 
 use crate::common::{Payload, Stokes, CHANNELS};
-use anyhow::anyhow;
+use crossbeam_channel::{Receiver, Sender};
 use log::info;
 use std::time::{Duration, Instant};
-use thingbuf::mpsc::blocking::{Sender, StaticReceiver, StaticSender};
 
 /// How long before we send one off to monitor
 const MONITOR_CADENCE: Duration = Duration::from_secs(10);
 
 #[allow(clippy::missing_panics_doc)]
 pub fn downsample_task(
-    receiver: StaticReceiver<Payload>,
+    receiver: Receiver<Box<Payload>>,
     sender: Sender<Stokes>,
-    to_dumps: StaticSender<Payload>,
+    to_dumps: Sender<Box<Payload>>,
     monitor: Sender<Stokes>,
     downsample_power: u32,
 ) -> anyhow::Result<()> {
@@ -31,13 +30,11 @@ pub fn downsample_task(
     let mut local_monitor_iters = 0;
 
     loop {
-        let payload = receiver
-            .recv_ref()
-            .ok_or_else(|| anyhow!("Channel closed"))?;
+        let payload = receiver.recv()?;
         // Compute Stokes I
         let stokes = payload.stokes_i();
         // Send payload
-        to_dumps.send(*payload)?;
+        to_dumps.send(payload)?;
         debug_assert_eq!(stokes.len(), CHANNELS);
         // Add to averaging bufs
         downsamp_buf

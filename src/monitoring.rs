@@ -1,7 +1,7 @@
 use crate::capture::Stats;
 use crate::common::Stokes;
 use crate::fpga::Device;
-use anyhow::anyhow;
+use crossbeam_channel::Receiver;
 use http_body_util::Full;
 use hyper::body::Bytes;
 use hyper::header::CONTENT_TYPE;
@@ -17,7 +17,6 @@ use prometheus::{
 };
 use std::convert::Infallible;
 use std::net::SocketAddr;
-use thingbuf::mpsc::blocking::Receiver;
 use tokio::net::TcpListener;
 
 lazy_static! {
@@ -69,12 +68,12 @@ pub fn monitor_task(
     info!("Starting monitoring task!");
     loop {
         // Blocking here is ok, these are infrequent events
-        let stat = stats.recv_ref().ok_or_else(|| anyhow!("Channel closed"))?;
+        let stat = stats.recv()?;
         PACKET_GAUGE.set(stat.processed.try_into().unwrap());
         DROP_GAUGE.set(stat.drops.try_into().unwrap());
 
         // Update channel data
-        let avg_spec = avg.recv_ref().ok_or_else(|| anyhow!("Channel closed"))?;
+        let avg_spec = avg.recv()?;
         for (i, v) in avg_spec.iter().enumerate() {
             SPECTRUM_GAUGE
                 .with_label_values(&[&i.to_string()])

@@ -1,8 +1,8 @@
 //! Task for injecting a fake pulse into the timestream to test/validate downstream components
 
 use crate::common::{Stokes, CHANNELS};
-use anyhow::anyhow;
 use byte_slice_cast::AsSliceOf;
+use crossbeam_channel::{Receiver, Sender};
 use log::info;
 use memmap2::Mmap;
 use ndarray::{s, ArrayView, ArrayView2};
@@ -10,7 +10,6 @@ use rand_distr::{Distribution, Normal};
 use std::fs::File;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use thingbuf::mpsc::blocking::{Receiver, Sender};
 
 fn read_pulse(pulse_mmap: &Mmap) -> anyhow::Result<ArrayView2<f64>> {
     let floats = pulse_mmap[..].as_slice_of::<f64>()?;
@@ -58,7 +57,7 @@ pub fn pulse_injection_task(
 
     loop {
         // Grab stokes from downsample
-        let mut s = input.recv_ref().ok_or_else(|| anyhow!("Channel closed"))?;
+        let mut s = input.recv()?;
         if last_injection.elapsed() >= cadence {
             last_injection = Instant::now();
             currently_injecting = true;
