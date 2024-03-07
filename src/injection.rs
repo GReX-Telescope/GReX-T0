@@ -1,5 +1,5 @@
 //! Task for injecting a fake pulse into the timestream to test/validate downstream components
-use crate::common::{Stokes, BLOCK_TIMEOUT, CHANNELS};
+use crate::common::{Payload, BLOCK_TIMEOUT, CHANNELS};
 use byte_slice_cast::AsSliceOf;
 use memmap2::Mmap;
 use ndarray::{s, ArrayView, ArrayView2};
@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 use thingbuf::mpsc::{
-    blocking::{Receiver, Sender},
+    blocking::{StaticReceiver, StaticSender},
     errors::RecvTimeoutError,
 };
 use tokio::sync::broadcast;
@@ -23,8 +23,8 @@ fn read_pulse(pulse_mmap: &Mmap) -> eyre::Result<ArrayView2<f64>> {
 }
 
 pub fn pulse_injection_task(
-    input: Receiver<Stokes>,
-    output: Sender<Stokes>,
+    input: StaticReceiver<Payload>,
+    output: StaticSender<Payload>,
     cadence: Duration,
     pulse_path: PathBuf,
     mut shutdown: broadcast::Receiver<()>,
@@ -65,9 +65,9 @@ pub fn pulse_injection_task(
                 info!("Injection task stopping");
                 break;
             }
-            // Grab stokes from downsample
-            match input.recv_ref_timeout(BLOCK_TIMEOUT) {
-                Ok(mut s) => {
+            // Grab payload from packet capture
+            match input.recv_timeout(BLOCK_TIMEOUT) {
+                Ok(mut payload) => {
                     if last_injection.elapsed() >= cadence {
                         last_injection = Instant::now();
                         currently_injecting = true;
@@ -77,8 +77,19 @@ pub fn pulse_injection_task(
                         // Get the slice of fake pulse data
                         let this_sample = current_pulse.slice(s![.., i]);
                         // Add the current time slice of the fake pulse into the stream of real data
-                        for (i, source) in s.iter_mut().zip(this_sample) {
-                            *i += *source as f32
+                        // For both polarizations, add the real and imaginary part by the value of the corresponding channel in the fake pulse data
+                        for (payload_val, pulse_val) in payload.pol_a.iter_mut().zip(this_sample) {
+                            // Compute the phase of this channel's voltage
+                            let phase = (payload_val.0.im as f64).atan2(payload_val.0.re as f64);
+                            // Create the phasor for the pulse and add to the complex components in our data
+                            payload_val.0.re += (pulse_val * phase.cos()).round() as i8;
+                            payload_val.0.im += (pulse_val * phase.sin()).round() as i8;
+                        }
+                        // And again for pol_b
+                        for (payload_val, pulse_val) in payload.pol_b.iter_mut().zip(this_sample) {
+                            let phase = (payload_val.0.im as f64).atan2(payload_val.0.re as f64);
+                            payload_val.0.re += (pulse_val * phase.cos()).round() as i8;
+                            payload_val.0.im += (pulse_val * phase.sin()).round() as i8;
                         }
                         i += 1;
                         // If we've gone through all of it, stop and move to the next pulse
@@ -89,7 +100,7 @@ pub fn pulse_injection_task(
                             current_pulse = read_pulse(&current_mmap)?;
                         }
                     }
-                    output.send(s.clone())?;
+                    output.send(payload)?;
                 }
                 Err(RecvTimeoutError::Timeout) => continue,
                 Err(RecvTimeoutError::Closed) => break,

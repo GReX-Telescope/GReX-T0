@@ -25,6 +25,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 // Setup the static channels
 const FAST_PATH_CHANNEL_SIZE: usize = 1024;
 static CAPTURE_CHAN: StaticChannel<Payload, FAST_PATH_CHANNEL_SIZE> = StaticChannel::new();
+static INJECT_CHAN: StaticChannel<Payload, FAST_PATH_CHANNEL_SIZE> = StaticChannel::new();
 static DUMP_CHAN: StaticChannel<Payload, FAST_PATH_CHANNEL_SIZE> = StaticChannel::new();
 
 #[tokio::main(flavor = "current_thread")]
@@ -100,9 +101,9 @@ async fn main() -> eyre::Result<()> {
     // These may not need to be static
     let (cap_s, cap_r) = CAPTURE_CHAN.split();
     let (dump_s, dump_r) = DUMP_CHAN.split();
+    let (inject_s, inject_r) = INJECT_CHAN.split();
     // Fast path channels
     let (ex_s, ex_r) = channel(FAST_PATH_CHANNEL_SIZE);
-    let (inject_s, inject_r) = channel(FAST_PATH_CHANNEL_SIZE);
 
     // Less important channels, these don't have to be static
     let (trig_s, trig_r) = channel(5);
@@ -132,8 +133,8 @@ async fn main() -> eyre::Result<()> {
         (
             "injection",
             injection::pulse_injection_task(
-                inject_r,
-                ex_s,
+                cap_r,
+                inject_s,
                 Duration::from_secs(cli.injection_cadence),
                 cli.pulse_path,
                 sd_inject_r
@@ -142,8 +143,8 @@ async fn main() -> eyre::Result<()> {
         (
             "downsample",
             processing::downsample_task(
-                cap_r,
-                inject_s,
+                inject_r,
+                ex_s,
                 dump_s,
                 cli.downsample_power,
                 sd_downsamp_r

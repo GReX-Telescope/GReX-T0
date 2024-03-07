@@ -16,7 +16,7 @@ pub type Stokes = ArrayVec<f32, CHANNELS>;
 
 /// The complex number representing the voltage of a single channel
 #[derive(Debug, Clone, Copy)]
-pub struct Channel(Complex<i8>);
+pub struct Channel(pub Complex<i8>);
 
 impl Channel {
     pub fn new(re: i8, im: i8) -> Self {
