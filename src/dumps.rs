@@ -14,7 +14,7 @@ use thingbuf::mpsc::{
     errors::RecvTimeoutError,
 };
 use tokio::{net::UdpSocket, sync::broadcast};
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 pub struct DumpRing {
     capacity: usize,
@@ -126,8 +126,9 @@ pub async fn trigger_task(
             }
             // Receive bytes from the socket, optionally containing a file suffix
             // And send to the dump task
-            _ = sock.recv_from(&mut buf) => {
-                sender.send(buf.to_vec())?;
+            res = sock.recv_from(&mut buf) => {
+                let (n,_) = res.expect("Failed to recv_from trigger socket");
+                sender.send(buf[..n].to_vec())?;
             }
         }
     }
