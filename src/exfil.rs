@@ -3,8 +3,7 @@ use crate::common::{Stokes, BLOCK_TIMEOUT, CHANNELS, PACKET_CADENCE};
 use byte_slice_cast::AsByteSlice;
 use eyre::eyre;
 use hifitime::prelude::*;
-use lending_iterator::prelude::*;
-use psrdada::client::DadaClient;
+use psrdada::prelude::*;
 use sigproc_filterbank::write::WriteFilterbank;
 use std::fs::File;
 use std::path::Path;
@@ -71,9 +70,11 @@ pub fn dada_consumer(
         ),
     ]);
     // Grab PSRDADA writing context
-    let mut client = DadaClient::new(key).expect("Could not connect to PSRDADA buffer");
+    let mut client = HduClient::connect(key).expect("Could not connect to PSRDADA buffer");
     let (mut hc, mut dc) = client.split();
-    let mut data_writer = dc.writer();
+    let mut data_writer = dc
+        .writer()
+        .expect("Couldn't lock the DADA buffer for writting");
     info!("DADA header pushed, starting exfil to Heimdall");
     // Start the main consumer loop
     // FIXME FIXME How do we timeout of grabbing a dada block?
@@ -101,7 +102,7 @@ pub fn dada_consumer(
                 header.insert("UTC_START".to_owned(), timestamp_str);
                 // Write the single header
                 // Safety: All these header keys and values are valid
-                unsafe { hc.push_header(&header).unwrap() };
+                unsafe { hc.write_header(&header).unwrap() };
             }
             // Zero the first and last 250 sample to remove the aliasing artifacts from the edges
             stokes[0..=250].fill(0.0);

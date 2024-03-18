@@ -18,7 +18,7 @@ socket2 = "0.5"
 tokio = { version = "1", features = ["full"] }
 thiserror = "1"
 core_affinity = "0.8"
-psrdada = { git = "https://github.com/kiranshila/psrdada-rs", branch = "v0_2" }
+psrdada = "0.4"
 byte-slice-cast = "1"
 lending-iterator = "0.1"
 thingbuf = { version = "0.1", features = ["static"] }

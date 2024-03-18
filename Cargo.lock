@@ -363,17 +363,17 @@ checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
 name = "bindgen"
-version = "0.68.1"
+version = "0.69.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "726e4313eb6ec35d2730258ad4e15b547ee75d6afaa1361a922e78e59b7d8078"
+checksum = "a00dc851838a2120612785d195287475a3ac45514741da670b735818822129a0"
 dependencies = [
  "bitflags 2.4.2",
  "cexpr",
  "clang-sys",
+ "itertools",
  "lazy_static",
  "lazycell",
  "log",
- "peeking_take_while",
  "prettyplease",
  "proc-macro2",
  "quote",
@@ -1931,9 +1931,9 @@ dependencies = [
 
 [[package]]
 name = "page_size"
-version = "0.4.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eebde548fbbf1ea81a99b128872779c437752fb99f217c45245e1a61dcd9edcd"
+checksum = "30d5b2194ed13191c1999ae0704b7839fb18384fa22e49b57eeaa97d79ce40da"
 dependencies = [
  "libc",
  "winapi",
@@ -1967,12 +1967,6 @@ name = "paste"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
-
-[[package]]
-name = "peeking_take_while"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
 name = "percent-encoding"
@@ -2112,10 +2106,10 @@ checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
 
 [[package]]
 name = "psrdada"
-version = "0.2.4"
-source = "git+https://github.com/kiranshila/psrdada-rs?branch=v0_2#88bde4c49e9b6118af6e6d352014bdf2bebd0216"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "497c46dec18e6ac93598adad505b4d8ebb2ab5305be671422fb904b2f8c5f89f"
 dependencies = [
- "lending-iterator",
  "nom",
  "page_size",
  "psrdada-sys",
@@ -2124,11 +2118,12 @@ dependencies = [
 
 [[package]]
 name = "psrdada-sys"
-version = "0.2.2"
-source = "git+https://github.com/kiranshila/psrdada-rs?branch=v0_2#88bde4c49e9b6118af6e6d352014bdf2bebd0216"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "319970d04e14f631337b387343e40c6f741d37ac85fc20c551595cf672263283"
 dependencies = [
  "bindgen",
- "cc",
+ "pkg-config",
 ]
 
 [[package]]
