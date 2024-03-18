@@ -3,7 +3,6 @@ use crate::common::{Stokes, BLOCK_TIMEOUT, CHANNELS};
 use byte_slice_cast::AsSliceOf;
 use memmap2::Mmap;
 use ndarray::{s, ArrayView, ArrayView2};
-use rand_distr::{Distribution, Normal};
 use std::{
     fs::File,
     path::PathBuf,
@@ -61,9 +60,6 @@ pub fn pulse_injection_task(
         let mut current_mmap = unsafe { Mmap::map(&File::open(pulse_cycle.next().unwrap())?)? };
         let mut current_pulse = read_pulse(&current_mmap)?;
 
-        // FIXME remove
-        let normal = Normal::new(0.4, 0.05).unwrap();
-
         loop {
             if shutdown.try_recv().is_ok() {
                 info!("Injection task stopping");
@@ -82,7 +78,7 @@ pub fn pulse_injection_task(
                         let this_sample = current_pulse.slice(s![.., i]);
                         // Add the current time slice of the fake pulse into the stream of real data
                         for (i, source) in s.iter_mut().zip(this_sample) {
-                            *i = *source as f32 + normal.sample(&mut rand::thread_rng());
+                            *i += *source as f32
                         }
                         i += 1;
                         // If we've gone through all of it, stop and move to the next pulse
