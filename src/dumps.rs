@@ -14,7 +14,7 @@ use thingbuf::mpsc::{
     errors::RecvTimeoutError,
 };
 use tokio::{net::UdpSocket, sync::broadcast};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 pub struct DumpRing {
     capacity: usize,
@@ -41,6 +41,7 @@ impl DumpRing {
     // Pack the ring into an array of [time, (pol_a, pol_b), channel, (re, im)]
     pub fn dump(&self, start_time: &Epoch, path: &Path, filename: &str) -> eyre::Result<()> {
         let file_path = path.join(filename);
+        info!("{:?}", file_path);
         let mut file = netcdf::create(file_path)?;
 
         // Add the file dimensions
