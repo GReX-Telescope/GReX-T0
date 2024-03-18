@@ -42,9 +42,8 @@
         buildInputs = [ runCiLocally ] ++ (with pkgs; [
           # Rust stuff, some stuff dev-only
           (rust-bin.nightly.latest.default.override {
-              extensions = ["rust-src" "rust-analyzer" "llvm-tools-preview"];
+              extensions = ["rust-src" "rust-analyzer"];
             })
-            cargo-llvm-cov
 
             # The C-libraries needed to statically link
           psrdada.packages.${system}.default
