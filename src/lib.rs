@@ -1,4 +1,4 @@
-//! Seperate library crate so we can run benchmarks
+//! Separate library crate so we can run benchmarks
 
 #![deny(clippy::all)]
 //#![warn(clippy::pedantic)]

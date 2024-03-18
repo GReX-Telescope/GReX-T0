@@ -74,7 +74,7 @@ pub fn dada_consumer(
     let (mut hc, mut dc) = client.split();
     let mut data_writer = dc
         .writer()
-        .expect("Couldn't lock the DADA buffer for writting");
+        .expect("Couldn't lock the DADA buffer for writing");
     info!("DADA header pushed, starting exfil to Heimdall");
     // Start the main consumer loop
     // FIXME FIXME How do we timeout of grabbing a dada block?
@@ -94,7 +94,7 @@ pub fn dada_consumer(
             // Timestamp first one
             if first_payload {
                 first_payload = false;
-                // The first payload we recieve will be payload #1 (as we armed and triggered)
+                // The first payload we receive will be payload #1 (as we armed and triggered)
                 // We'll compute the timestamp via the first payload count and the cadence
                 let first_payload_time = payload_start
                     + (PACKET_CADENCE * FIRST_PACKET.load(Ordering::Acquire) as f64).seconds();
@@ -113,7 +113,7 @@ pub fn dada_consumer(
             stokes_cnt += 1;
             // If we've filled the window, commit it to PSRDADA
             if stokes_cnt == window_size {
-                debug!("Commiting window to PSRDADA");
+                debug!("Committing window to PSRDADA");
                 // Reset the stokes counter
                 stokes_cnt = 0;
                 // Commit data and update

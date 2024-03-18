@@ -34,16 +34,8 @@
           echo "Checking clippy..."
           cargo clippy --all-targets
 
-          echo "Checking spelling..."
-          codespell \
-            --skip target,.git \
-            --ignore-words-list crate
-
           echo "Testing Rust code..."
           cargo test
-
-          echo "Generating code coverage..."
-          cargo llvm-cov --workspace --lcov --output-path lcov.info
         '';
 
         nativeBuildInputs = with pkgs; [ rustPlatform.bindgenHook pkg-config ];
@@ -54,8 +46,10 @@
             })
             cargo-llvm-cov
 
-            # The C-library itself
+            # The C-libraries needed to statically link
           psrdada.packages.${system}.default
+          netcdf
+          hdf5
 
           # Linting support
           codespell

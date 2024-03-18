@@ -26,7 +26,7 @@ pub static FIRST_PACKET: AtomicU64 = AtomicU64::new(0);
 #[derive(thiserror::Error, Debug)]
 /// Errors that can be produced from captures
 pub enum Error {
-    #[error("We recieved a payload which wasn't the size we expected {0}")]
+    #[error("We received a payload which wasn't the size we expected {0}")]
     SizeMismatch(usize),
     #[error("Failed to set the recv buffer size. We tried to set {expected}, but found {found}. Check sysctl net.core.rmem_max")]
     SetRecvBufferFailed { expected: usize, found: usize },
@@ -37,7 +37,7 @@ pub struct Capture {
     sock: UdpSocket,
     /// How many packets we've dropped because the incoming one wasn't n+1
     pub drops: usize,
-    /// How many packets from the past we've recieved (indicating there was a shuffle somewhere)
+    /// How many packets from the past we've received (indicating there was a shuffle somewhere)
     pub shuffled: usize,
     /// The number of packets we've actually processed
     pub processed: usize,

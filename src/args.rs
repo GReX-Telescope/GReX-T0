@@ -77,7 +77,7 @@ pub enum Exfil {
 }
 
 fn valid_dada_key(s: &str) -> Result<i32, String> {
-    i32::from_str_radix(s, 16).map_err(|_| "Invalid hex litteral".to_string())
+    i32::from_str_radix(s, 16).map_err(|_| "Invalid hex literal".to_string())
 }
 
 pub fn parse_core_range(input: &str) -> Result<RangeInclusive<usize>, String> {

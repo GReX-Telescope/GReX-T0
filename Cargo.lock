@@ -617,7 +617,7 @@ checksum = "67523a3b4be3ce1989d607a828d036249522dd9c1c8de7f4dd2dae43a37369d1"
 dependencies = [
  "glob",
  "libc",
- "libloading 0.8.1",
+ "libloading",
 ]
 
 [[package]]
@@ -680,15 +680,6 @@ name = "clap_lex"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
-
-[[package]]
-name = "cmake"
-version = "0.1.50"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31c789563b815f77f4250caee12365734369f942439b7defd71e18a48197130"
-dependencies = [
- "cc",
-]
 
 [[package]]
 name = "color-eyre"
@@ -863,21 +854,6 @@ checksum = "1bfb12502f3fc46cca1bb51ac28df9d618d813cdc3d2f25b9fe775a34af26bb3"
 dependencies = [
  "generic-array",
  "typenum",
-]
-
-[[package]]
-name = "curl-sys"
-version = "0.4.70+curl-8.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c0333d8849afe78a4c8102a429a446bfdd055832af071945520e835ae2d841e"
-dependencies = [
- "cc",
- "libc",
- "libz-sys",
- "openssl-sys",
- "pkg-config",
- "vcpkg",
- "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -1175,25 +1151,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290f1a1d9242c78d09ce40a5e87e7554ee637af1351968159f4952f028f75604"
 
 [[package]]
-name = "hdf5-src"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e01493db39ddc0519cf2a83d620d2c037fee60f4fed724cb72dc23763f1727a8"
-dependencies = [
- "cmake",
- "libz-sys",
-]
-
-[[package]]
 name = "hdf5-sys"
 version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4842d5980dc311a7c8933c7b45534fdae84df5ae7939a0ae8e449a56d4beb3d2"
+source = "git+https://github.com/aldanor/hdf5-rust#4a9b537f0c7ba3f75712ba240fe9ffeb1fd9447e"
 dependencies = [
- "hdf5-src",
  "libc",
- "libloading 0.7.4",
- "libz-sys",
+ "libloading",
  "pkg-config",
  "regex",
  "serde",
@@ -1484,16 +1447,6 @@ checksum = "13e3bf6590cbc649f4d1a3eefc9d5d6eb746f5200ffb04e5e142700b8faa56e7"
 
 [[package]]
 name = "libloading"
-version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b67380fd3b2fbe7527a606e18729d21c6f3951633d0500574c4dc22d2d638b9f"
-dependencies = [
- "cfg-if",
- "winapi",
-]
-
-[[package]]
-name = "libloading"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c571b676ddfc9a8c12f1f3d3085a7b163966a8fd8098a90640953ce5f6170161"
@@ -1709,26 +1662,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "netcdf-src"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77436df6015ab0183477ed27bea283ff5fee22891e907823de11f4ad12e1fc54"
-dependencies = [
- "cmake",
- "hdf5-sys",
- "libz-sys",
-]
-
-[[package]]
 name = "netcdf-sys"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fc585a3c0dfd225183529a402667bd48f7ac14c0bcaf3e1336fb7f8ccdaa1db"
 dependencies = [
- "curl-sys",
  "hdf5-sys",
  "libz-sys",
- "netcdf-src",
  "semver",
 ]
 
@@ -1866,28 +1806,6 @@ name = "oorandom"
 version = "11.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ab1bc2a289d34bd04a330323ac98a1b4bc82c9d9fcb1e66b63caa84da26b575"
-
-[[package]]
-name = "openssl-src"
-version = "300.2.1+3.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fe476c29791a5ca0d1273c697e96085bbabbbea2ef7afd5617e78a4b40332d3"
-dependencies = [
- "cc",
-]
-
-[[package]]
-name = "openssl-sys"
-version = "0.9.99"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22e1bf214306098e4832460f797824c05d25aacdf896f64a985fb0fd992454ae"
-dependencies = [
- "cc",
- "libc",
- "openssl-src",
- "pkg-config",
- "vcpkg",
-]
 
 [[package]]
 name = "os_str_bytes"
@@ -3108,12 +3026,13 @@ checksum = "dff9641d1cd4be8d1a070daf9e3773c5f67e78b4d9d42263020c057706765c04"
 
 [[package]]
 name = "winreg"
-version = "0.10.1"
+version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80d0f4e272c85def139476380b12f9ac60926689dd2e01d4923222f40580869d"
+checksum = "a277a57398d4bfa075df44f501a17cfdf8542d224f0d36095a2adc7aee4ef0a5"
 dependencies = [
+ "cfg-if",
  "serde",
- "winapi",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
