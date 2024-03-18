@@ -21,39 +21,48 @@
     };
   };
 
-  outputs = { nixpkgs, flake-utils, psrdada, rust-overlay, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        overlays = [ (import rust-overlay) ];
-        pkgs = import nixpkgs { inherit system overlays; };
+  outputs = {
+    nixpkgs,
+    flake-utils,
+    psrdada,
+    rust-overlay,
+    ...
+  }:
+    flake-utils.lib.eachDefaultSystem (system: let
+      overlays = [(import rust-overlay)];
+      pkgs = import nixpkgs {inherit system overlays;};
 
-        runCiLocally = pkgs.writeScriptBin "ci-local" ''
-          echo "Checking Rust formatting..."
-          cargo fmt --check
+      runCiLocally = pkgs.writeScriptBin "ci-local" ''
+        echo "Checking Rust formatting..."
+        cargo fmt --check
 
-          echo "Checking clippy..."
-          cargo clippy --all-targets
+        echo "Checking clippy..."
+        cargo clippy --all-targets
 
-          echo "Testing Rust code..."
-          cargo test
-        '';
+        echo "Testing Rust code..."
+        cargo test
+      '';
 
-        nativeBuildInputs = with pkgs; [ rustPlatform.bindgenHook pkg-config ];
-        buildInputs = [ runCiLocally ] ++ (with pkgs; [
+      nativeBuildInputs = with pkgs; [rustPlatform.bindgenHook pkg-config];
+      buildInputs =
+        [runCiLocally]
+        ++ (with pkgs; [
           # Rust stuff, some stuff dev-only
           (rust-bin.nightly.latest.default.override {
-              extensions = ["rust-src" "rust-analyzer"];
-            })
+            extensions = ["rust-src" "rust-analyzer"];
+          })
 
-            # The C-libraries needed to statically link
+          # The C-libraries needed to statically link
           psrdada.packages.${system}.default
           netcdf
           hdf5
 
           # Linting support
           codespell
+          alejandra
         ]);
-      in with pkgs; {
-        devShells.default = mkShell { inherit buildInputs nativeBuildInputs; };
+    in
+      with pkgs; {
+        devShells.default = mkShell {inherit buildInputs nativeBuildInputs;};
       });
 }
