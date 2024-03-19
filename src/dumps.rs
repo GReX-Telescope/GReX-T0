@@ -112,13 +112,14 @@ impl DumpRing {
 
         // Finally, spawn (and detatch) a thread to move this file to the actual requested final spot on the disk
         let final_file_path = path.join(filename);
-        let _ = std::thread::spawn(move || {
-            info!("Moving dump file to final destination");
+        let handler = std::thread::spawn(move || {
+            println!("Moving dump file to final destination");
             match std::fs::rename(tmp_file_path, final_file_path) {
                 Ok(()) => (),
-                Err(e) => error!("Moving file failed - {}", e),
+                Err(e) => println!("Moving file failed - {}", e),
             }
         });
+        drop(handler);
 
         Ok(())
     }
