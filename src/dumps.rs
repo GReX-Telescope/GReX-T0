@@ -111,13 +111,11 @@ impl DumpRing {
         drop(file);
 
         // Finally, spawn (and detatch) a thread to move this file to the actual requested final spot on the disk
+        // Due to https://github.com/rust-lang/rustup/issues/1239, this has to be a copy then delete instead of a move
         let final_file_path = path.join(filename);
         let handler = std::thread::spawn(move || {
-            println!("Moving dump file to final destination");
-            match std::fs::rename(tmp_file_path, final_file_path) {
-                Ok(()) => (),
-                Err(e) => println!("Moving file failed - {}", e),
-            }
+            std::fs::copy(tmp_file_path.clone(), final_file_path).expect("Couldn't move file");
+            std::fs::remove_file(tmp_file_path).expect("Couldn't remove tmp file");
         });
         drop(handler);
 

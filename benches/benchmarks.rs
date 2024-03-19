@@ -33,5 +33,7 @@ pub fn inject_complex(c: &mut Criterion) {
     });
 }
 
+pub fn dump_ring(c: &mut Criterion) {}
+
 criterion_group!(benches, push_ring, to_ndarray, inject_complex);
 criterion_main!(benches);
