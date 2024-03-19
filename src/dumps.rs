@@ -91,7 +91,7 @@ impl DumpRing {
 
         // Write to the file, one timestep at a time, chunking in pols, channels, and reim
         voltages.set_chunking(&[1, 2, CHANNELS, 2])?;
-        voltages.set_compression(1, true)?;
+        voltages.set_compression(3, true)?;
         let mut idx = 0;
         let mut read_idx = self.write_index;
         loop {
