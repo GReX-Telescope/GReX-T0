@@ -89,9 +89,9 @@ impl DumpRing {
         voltages.put_attribute("long_name", "Channelized Voltages")?;
         voltages.put_attribute("units", "Volts")?;
 
-        // Write to the file, one timestep at a time, chunking in pols, channels, and reim
+        // Write to the file, one timestep at a time (chunking in pols, channels, and reim)
         voltages.set_chunking(&[1, 2, CHANNELS, 2])?;
-        voltages.set_compression(6, true)?;
+        voltages.set_compression(2, true)?;
         let mut idx = 0;
         let mut read_idx = self.write_index;
         loop {
