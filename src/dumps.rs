@@ -14,7 +14,7 @@ use thingbuf::mpsc::{
     errors::RecvTimeoutError,
 };
 use tokio::{net::UdpSocket, sync::broadcast};
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 pub struct DumpRing {
     capacity: usize,
@@ -112,7 +112,13 @@ impl DumpRing {
 
         // Finally, spawn (and detatch) a thread to move this file to the actual requested final spot on the disk
         let final_file_path = path.join(filename);
-        let _ = std::thread::spawn(move || std::fs::rename(tmp_file_path, final_file_path));
+        let _ = std::thread::spawn(move || {
+            info!("Moving dump file to final destination");
+            match std::fs::rename(tmp_file_path, final_file_path) {
+                Ok(()) => (),
+                Err(e) => error!("Moving file failed - {}", e),
+            }
+        });
 
         Ok(())
     }
