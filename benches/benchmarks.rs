@@ -24,16 +24,10 @@ pub fn inject_complex(c: &mut Criterion) {
     c.bench_function("complex injection", |b| {
         b.iter(|| {
             for (payload_val, pulse_val) in payload.pol_a.iter_mut().zip(pulse_time_slice) {
-                //let phase = (payload_val.0.im as f64).atan2(payload_val.0.re as f64);
-                let phase = std::f64::consts::PI;
-                payload_val.0.re += (pulse_val * phase).round() as i8;
-                payload_val.0.im += (pulse_val * phase).round() as i8;
+                payload_val.0.re += (pulse_val).round() as i8;
             }
             for (payload_val, pulse_val) in payload.pol_b.iter_mut().zip(pulse_time_slice) {
-                //let phase = (payload_val.0.im as f64).atan2(payload_val.0.re as f64);
-                let phase = std::f64::consts::PI;
-                payload_val.0.re += (pulse_val * phase).round() as i8;
-                payload_val.0.im += (pulse_val * phase).round() as i8;
+                payload_val.0.re += (pulse_val).round() as i8;
             }
         })
     });

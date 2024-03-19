@@ -79,17 +79,12 @@ pub fn pulse_injection_task(
                         // Add the current time slice of the fake pulse into the stream of real data
                         // For both polarizations, add the real and imaginary part by the value of the corresponding channel in the fake pulse data
                         for (payload_val, pulse_val) in payload.pol_a.iter_mut().zip(this_sample) {
-                            // Compute the phase of this channel's voltage
-                            let phase = (payload_val.0.im as f64).atan2(payload_val.0.re as f64);
-                            // Create the phasor for the pulse and add to the complex components in our data
-                            payload_val.0.re += (pulse_val * phase.cos()).round() as i8;
-                            payload_val.0.im += (pulse_val * phase.sin()).round() as i8;
+                            // Just add this pulse to the real component of the voltage
+                            payload_val.0.re += *pulse_val as i8;
                         }
                         // And again for pol_b
                         for (payload_val, pulse_val) in payload.pol_b.iter_mut().zip(this_sample) {
-                            let phase = (payload_val.0.im as f64).atan2(payload_val.0.re as f64);
-                            payload_val.0.re += (pulse_val * phase.cos()).round() as i8;
-                            payload_val.0.im += (pulse_val * phase.sin()).round() as i8;
+                            payload_val.0.re += *pulse_val as i8;
                         }
                         i += 1;
                         // If we've gone through all of it, stop and move to the next pulse

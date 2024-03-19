@@ -23,8 +23,8 @@ use tracing::info;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 // Setup the static channels
-const FAST_PATH_CHANNEL_SIZE: usize = 4096;
-static CAPTURE_CHAN: StaticChannel<Payload, FAST_PATH_CHANNEL_SIZE> = StaticChannel::new();
+const FAST_PATH_CHANNEL_SIZE: usize = 1024;
+static CAPTURE_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
 static INJECT_CHAN: StaticChannel<Payload, FAST_PATH_CHANNEL_SIZE> = StaticChannel::new();
 static DUMP_CHAN: StaticChannel<Payload, FAST_PATH_CHANNEL_SIZE> = StaticChannel::new();
 
