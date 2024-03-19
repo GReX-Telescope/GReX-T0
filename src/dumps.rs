@@ -14,7 +14,7 @@ use thingbuf::mpsc::{
     errors::RecvTimeoutError,
 };
 use tokio::{net::UdpSocket, sync::broadcast};
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 pub struct DumpRing {
     capacity: usize,
