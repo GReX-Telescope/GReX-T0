@@ -78,9 +78,8 @@ pub fn pulse_injection_task(
                         // Get the slice of fake pulse data
                         let this_sample = current_pulse.slice(s![.., i]);
                         // Add the current time slice of the fake pulse into the stream of real data
-                        // For both polarizations, add the real and imaginary part by the value of the corresponding channel in the fake pulse data
+                        // For both polarizations, add the real part by the value of the corresponding channel in the fake pulse data
                         for (payload_val, pulse_val) in payload.pol_a.iter_mut().zip(this_sample) {
-                            // Just add this pulse to the real component of the voltage
                             payload_val.0.re += *pulse_val;
                         }
                         // And again for pol_b

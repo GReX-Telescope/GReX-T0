@@ -40,8 +40,12 @@ impl DumpRing {
 
     // Pack the ring into an array of [time, (pol_a, pol_b), channel, (re, im)]
     pub fn dump(&self, start_time: &Epoch, path: &Path, filename: &str) -> eyre::Result<()> {
-        let file_path = path.join(filename);
-        let mut file = netcdf::create(file_path)?;
+        // Create a tmpfile for this dump, as that will be on the OS drive (probably)
+        // Which should be faster storage than the result path
+
+        let tmp_path = std::env::temp_dir();
+        let tmp_file_path = tmp_path.join(filename);
+        let mut file = netcdf::create(tmp_file_path.clone())?;
 
         // Add the file dimensions
         file.add_dimension("time", self.capacity)?;
@@ -102,6 +106,14 @@ impl DumpRing {
                 break;
             }
         }
+
+        // Close the netcdf file
+        drop(file);
+
+        // Finally, spawn (and detatch) a thread to move this file to the actual requested final spot on the disk
+        let final_file_path = path.join(filename);
+        let _ = std::thread::spawn(move || std::fs::rename(tmp_file_path, final_file_path));
+
         Ok(())
     }
 }
