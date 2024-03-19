@@ -72,6 +72,7 @@ pub fn pulse_injection_task(
                         last_injection = Instant::now();
                         currently_injecting = true;
                         i = 0;
+                        info!("Injecting pulse!");
                     }
                     if currently_injecting {
                         // Get the slice of fake pulse data
