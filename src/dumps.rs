@@ -1,6 +1,6 @@
 //! Dumping voltage data
 
-use crate::common::{Payload, BLOCK_TIMEOUT, CHANNELS};
+use crate::common::{Payload, BLOCK_TIMEOUT, CHANNELS, PACKET_CADENCE};
 use crate::exfil::{BANDWIDTH, HIGHBAND_MID_FREQ};
 use hifitime::prelude::*;
 use ndarray::prelude::*;
@@ -54,24 +54,19 @@ impl DumpRing {
         file.add_dimension("reim", 2)?;
 
         // Describe the dimensions
-        let mut tdb = file.add_variable::<f64>("time", &["time"])?;
-        tdb.put_attribute("units", "Days")?;
-        tdb.put_attribute("long_name", "TAI days since the MJD Epoch")?;
-        // Fill times by traversing the payloads in order
-        let mut read_idx = self.write_index;
-        let mut idx = 0;
-        loop {
-            // Get payload ptr
-            let pl = self.container.get(read_idx).unwrap();
-            tdb.put_value(pl.real_time(start_time).to_mjd_tai_days(), idx)?;
-            // Increment the pointers
-            idx += 1;
-            read_idx = (read_idx + 1) % self.capacity;
-            // Check if we've gone all the way around
-            if read_idx == self.write_index {
-                break;
-            }
-        }
+        let mut mjd = file.add_variable::<f64>("time", &["time"])?;
+        mjd.put_attribute("units", "Days")?;
+        mjd.put_attribute("long_name", "TAI days since the MJD Epoch")?;
+
+        // Fill times
+        // Get the time of the first payload (the next write_index is the read index)
+        let pl = self.container.get(self.write_index).unwrap();
+        let mjd_start = pl.real_time(start_time).to_mjd_tai_days();
+        let mjd_end = mjd_start + self.capacity as f64 * PACKET_CADENCE / 86400f64; // candence in days
+
+        // And create the range
+        let mjds = Array::linspace(mjd_start, mjd_end, self.capacity);
+        mjd.put(.., mjds.view())?;
 
         let mut pol = file.add_string_variable("pol", &["pol"])?;
         pol.put_attribute("long_name", "Polarization")?;
@@ -96,8 +91,9 @@ impl DumpRing {
 
         // Write to the file, one timestep at a time, chunking in pols, channels, and reim
         voltages.set_chunking(&[1, 2, CHANNELS, 2])?;
-        idx = 0;
-        read_idx = self.write_index;
+        voltages.set_compression(9, true)?;
+        let mut idx = 0;
+        let mut read_idx = self.write_index;
         loop {
             let pl = self.container.get(read_idx).unwrap();
             voltages.put((idx, .., .., ..), pl.into_ndarray().view())?;
