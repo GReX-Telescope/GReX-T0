@@ -56,14 +56,14 @@ impl DumpRing {
         // Describe the dimensions
         let mut tdb = file.add_variable::<f64>("time", &["time"])?;
         tdb.put_attribute("units", "Days")?;
-        tdb.put_attribute("long_name", "Dynamic Barycentric Time (TDB) since J2000")?;
+        tdb.put_attribute("long_name", "TAI days since the MJD Epoch")?;
         // Fill times by traversing the payloads in order
         let mut read_idx = self.write_index;
         let mut idx = 0;
         loop {
             // Get payload ptr
             let pl = self.container.get(read_idx).unwrap();
-            tdb.put_value(pl.real_time(start_time).to_tdb_days_since_j2000(), idx)?;
+            tdb.put_value(pl.real_time(start_time).to_mjd_tai_days(), idx)?;
             // Increment the pointers
             idx += 1;
             read_idx = (read_idx + 1) % self.capacity;
