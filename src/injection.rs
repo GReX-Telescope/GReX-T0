@@ -15,8 +15,8 @@ use thingbuf::mpsc::{
 use tokio::sync::broadcast;
 use tracing::{info, warn};
 
-fn read_pulse(pulse_mmap: &Mmap) -> eyre::Result<ArrayView2<f64>> {
-    let floats = pulse_mmap[..].as_slice_of::<f64>()?;
+fn read_pulse(pulse_mmap: &Mmap) -> eyre::Result<ArrayView2<i8>> {
+    let floats = pulse_mmap[..].as_slice_of::<i8>()?;
     let time_samples = floats.len() / CHANNELS;
     let block = ArrayView::from_shape((CHANNELS, time_samples), floats)?;
     Ok(block)
@@ -81,11 +81,11 @@ pub fn pulse_injection_task(
                         // For both polarizations, add the real and imaginary part by the value of the corresponding channel in the fake pulse data
                         for (payload_val, pulse_val) in payload.pol_a.iter_mut().zip(this_sample) {
                             // Just add this pulse to the real component of the voltage
-                            payload_val.0.re += *pulse_val as i8;
+                            payload_val.0.re += *pulse_val;
                         }
                         // And again for pol_b
                         for (payload_val, pulse_val) in payload.pol_b.iter_mut().zip(this_sample) {
-                            payload_val.0.re += *pulse_val as i8;
+                            payload_val.0.re += *pulse_val;
                         }
                         i += 1;
                         // If we've gone through all of it, stop and move to the next pulse
