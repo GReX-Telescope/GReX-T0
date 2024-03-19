@@ -1,5 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use grex_t0::{common::Payload, dumps::DumpRing};
+use hifitime::Epoch;
 
 pub fn push_ring(c: &mut Criterion) {
     let mut dr = DumpRing::new(15);
@@ -33,7 +34,23 @@ pub fn inject_complex(c: &mut Criterion) {
     });
 }
 
-pub fn dump_ring(c: &mut Criterion) {}
+pub fn dump_ring(c: &mut Criterion) {
+    let mut group = c.benchmark_group("dump_ring");
+    let _2_n = 20;
+    let mut dr = DumpRing::new(_2_n); // 2^20 samples ~ 8GB
+    let pl = Payload::default();
+    // Fill the dump ring
+    for _ in 0..2u32.pow(_2_n) {
+        dr.next_push().clone_from(&pl);
+    }
+    // Only run this 10 times
+    group.sample_size(10);
+    // Benchmark creating the CDF file and writing to disk
+    group.bench_function("dump_ring", |b| {
+        b.iter(|| dr.dump(&Epoch::now().unwrap(), &std::env::temp_dir(), "test.nc"))
+    });
+    group.finish();
+}
 
-criterion_group!(benches, push_ring, to_ndarray, inject_complex);
+criterion_group!(benches, push_ring, to_ndarray, inject_complex, dump_ring);
 criterion_main!(benches);

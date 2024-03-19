@@ -112,12 +112,16 @@ impl DumpRing {
 
         // Finally, spawn (and detatch) a thread to move this file to the actual requested final spot on the disk
         // Due to https://github.com/rust-lang/rustup/issues/1239, this has to be a copy then delete instead of a move
+
+        // If the final path is the same as the tmp path (as in we're dumping to tmp anyway)
+        // No need to do this
         let final_file_path = path.join(filename);
-        let handler = std::thread::spawn(move || {
-            std::fs::copy(tmp_file_path.clone(), final_file_path).expect("Couldn't move file");
-            std::fs::remove_file(tmp_file_path).expect("Couldn't remove tmp file");
-        });
-        drop(handler);
+        if final_file_path != tmp_file_path {
+            let _ = std::thread::spawn(move || {
+                std::fs::copy(tmp_file_path.clone(), final_file_path).expect("Couldn't move file");
+                std::fs::remove_file(tmp_file_path).expect("Couldn't remove tmp file");
+            });
+        }
 
         Ok(())
     }
