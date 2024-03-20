@@ -5,7 +5,6 @@ use socket2::{Domain, Socket, Type};
 use std::net::UdpSocket;
 use std::{
     net::SocketAddr,
-    sync::atomic::AtomicU64,
     time::{Duration, Instant},
 };
 use thingbuf::mpsc::blocking::{Sender, StaticSender};
@@ -20,8 +19,6 @@ const SPECTRA_SIZE: usize = 8192;
 pub const PAYLOAD_SIZE: usize = SPECTRA_SIZE + TIMESTAMP_SIZE;
 /// Polling interval for stats
 const STATS_POLL_DURATION: Duration = Duration::from_secs(20);
-/// Global atomic to hold the count of the first packet
-pub static FIRST_PACKET: AtomicU64 = AtomicU64::new(0);
 
 #[derive(thiserror::Error, Debug)]
 /// Errors that can be produced from captures

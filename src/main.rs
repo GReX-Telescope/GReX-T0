@@ -5,7 +5,7 @@ use grex_t0::{
     args,
     calibrate::calibrate,
     capture,
-    common::{Payload, CHANNELS},
+    common::{payload_start_time, Payload, CHANNELS},
     dumps::{self, DumpRing},
     exfil,
     fpga::Device,
@@ -81,9 +81,13 @@ async fn main() -> eyre::Result<()> {
         info!("Blindly triggering (no GPS), timing will be off");
         device.blind_trigger()?
     };
-    // Create clones of the packet start time to hand off to the other threads
-    let psc_exfil = packet_start;
-    let psc_monitoring = packet_start;
+    // Move this packet_start time into the global variable that everyone can use
+    {
+        // In our own little scope because we don't want to hold a non-async mutex across an
+        // await boundary.
+        let mut ps = payload_start_time().lock().unwrap();
+        *ps = Some(packet_start);
+    }
     if cli.trig {
         device.force_pps()?;
     }
@@ -152,7 +156,7 @@ async fn main() -> eyre::Result<()> {
         ),
         (
             "dump",
-            dumps::dump_task(ring, dump_r, trig_r, packet_start, cli.dump_path, sd_dump_r)
+            dumps::dump_task(ring, dump_r, trig_r, cli.dump_path, sd_dump_r)
         ),
         (
             "exfil",
@@ -161,14 +165,12 @@ async fn main() -> eyre::Result<()> {
                     args::Exfil::Psrdada { key, samples } => exfil::dada_consumer(
                         key,
                         ex_r,
-                        psc_exfil,
                         2usize.pow(cli.downsample_power),
                         samples,
                         sd_exfil_r
                     ),
                     args::Exfil::Filterbank => exfil::filterbank_consumer(
                         ex_r,
-                        psc_exfil,
                         2usize.pow(cli.downsample_power),
                         &cli.filterbank_path,
                         sd_exfil_r
@@ -185,10 +187,7 @@ async fn main() -> eyre::Result<()> {
 
     let _ = try_join!(
         // Start the webserver
-        tokio::spawn(monitoring::start_web_server(
-            cli.metrics_port,
-            psc_monitoring
-        )?),
+        tokio::spawn(monitoring::start_web_server(cli.metrics_port,)?),
         // Start the trigger watch
         tokio::spawn(dumps::trigger_task(trig_s, cli.trig_port, sd_trig_r))
     )?;

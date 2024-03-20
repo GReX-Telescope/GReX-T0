@@ -1,6 +1,6 @@
 //! Dumping voltage data
 
-use crate::common::{Payload, BLOCK_TIMEOUT, CHANNELS, PACKET_CADENCE};
+use crate::common::{payload_time, Payload, BLOCK_TIMEOUT, CHANNELS, PACKET_CADENCE};
 use crate::exfil::{BANDWIDTH, HIGHBAND_MID_FREQ};
 use hifitime::prelude::*;
 use ndarray::prelude::*;
@@ -16,33 +16,90 @@ use thingbuf::mpsc::{
 use tokio::{net::UdpSocket, sync::broadcast};
 use tracing::{info, warn};
 
+/// The voltage dump ringbuffer
+#[derive(Debug)]
 pub struct DumpRing {
+    /// The next time index we write into
+    write_ptr: usize,
+    /// The data itself (heap allocated)
+    buffer: Array4<i8>,
+    /// The number of time samples in this array
     capacity: usize,
-    container: Vec<Payload>,
-    write_index: usize,
+    /// The timestamp (packet count) of the oldest sample (pointed to by read_ptr).
+    /// None if the buffer is empty
+    oldest: Option<u64>,
+    // If the buffer is completly full
+    full: bool,
 }
 
 impl DumpRing {
-    pub fn next_push(&mut self) -> &mut Payload {
-        let before_idx = self.write_index;
-        self.write_index = (self.write_index + 1) % self.capacity;
-        &mut self.container[before_idx]
+    pub fn new(size_power: u32) -> Self {
+        let capacity = 2usize.pow(size_power);
+        // Allocate all the memory for the array (heap)
+        let buffer = Array::zeros((capacity, 2, CHANNELS, 2));
+        Self {
+            buffer,
+            capacity,
+            write_ptr: 0,
+            full: false,
+            oldest: None,
+        }
     }
 
-    pub fn new(size_power: u32) -> Self {
-        let cap = 2usize.pow(size_power);
-        Self {
-            container: vec![Payload::default(); cap],
-            write_index: 0,
-            capacity: cap,
+    pub fn push(&mut self, pl: &Payload) {
+        // Copy the data into the slice pointed to by the write_ptr
+        let data_view = pl.as_ndarray_data_view();
+        self.buffer
+            .slice_mut(s![self.write_ptr, .., .., ..])
+            .assign(&data_view);
+
+        // Move the pointer
+        self.write_ptr = (self.write_ptr + 1) % self.capacity;
+        // If there was no data update the timeslot of the oldest data and increment the write_ptr
+        if self.oldest.is_none() {
+            self.oldest = Some(pl.count);
+            // Nothing left to do
+            return;
+        }
+
+        // If we're full, we overwrite old data
+        // which increments the payload count of old data by one
+        // as they are always monotonically increasing by one
+        if self.full {
+            self.oldest = Some(self.oldest.unwrap() + 1);
+        }
+
+        // If we wrapped around the first time, we are now full
+        if self.write_ptr == 0 && !self.full {
+            self.full = true;
+        }
+    }
+
+    /// Get the two array views that represent the time-ordered, consecutive memory chunks of the ringbuffer.
+    /// The first view will always have data in it, and the second view will be buffer_capacity - length(first_view)
+    fn consecutive_views(&self) -> (ArrayView4<i8>, ArrayView4<i8>) {
+        // There are four different cases
+        // 1. the buffer is empty or
+        // 2. The buffer has yet to be filled to capacity  (and we always start at index 0) so there's only really one chunk
+        if !self.full {
+            (
+                self.buffer.slice(s![..self.write_ptr, .., .., ..]),
+                ArrayView4::from_shape((0, 2, CHANNELS, 2), &[]).unwrap(),
+            )
+        } else {
+            // 3. The buffer is full and the write_ptr is at 0 (so the buffer is in order) or
+            // 4. The write_ptr is non zero and the buffer is full, meaning the write_ptr is the split where data at its value to the end is the oldest chunk
+            (
+                self.buffer.slice(s![self.write_ptr.., .., .., ..]),
+                self.buffer.slice(s![..self.write_ptr, .., .., ..]),
+            )
         }
     }
 
     // Pack the ring into an array of [time, (pol_a, pol_b), channel, (re, im)]
-    pub fn dump(&self, start_time: &Epoch, path: &Path, filename: &str) -> eyre::Result<()> {
-        // Create a tmpfile for this dump, as that will be on the OS drive (probably)
-        // Which should be faster storage than the result path
-
+    pub fn dump(&self, path: &Path, filename: &str) -> eyre::Result<()> {
+        // Create a tmpfile for this dump, as that will be on the OS drive (probably),
+        // which should be faster storage than the result path
         let tmp_path = std::env::temp_dir();
         let tmp_file_path = tmp_path.join(filename);
         let mut file = netcdf::create(tmp_file_path.clone())?;
@@ -58,10 +115,8 @@ impl DumpRing {
         mjd.put_attribute("units", "Days")?;
         mjd.put_attribute("long_name", "TAI days since the MJD Epoch")?;
 
-        // Fill times
-        // Get the time of the first payload (the next write_index is the read index)
-        let pl = self.container.get(self.write_index).unwrap();
-        let mjd_start = pl.real_time(start_time).to_mjd_tai_days();
+        // Fill times using the payload count of the oldest sample in the ring buffer
+        let mjd_start = payload_time(self.oldest.unwrap()).to_mjd_tai_days();
         let mjd_end = mjd_start + self.capacity as f64 * PACKET_CADENCE / 86400f64; // candence in days
 
         // And create the range
@@ -90,22 +145,13 @@ impl DumpRing {
         voltages.put_attribute("units", "Volts")?;
 
         // Write to the file, one timestep at a time (chunking in pols, channels, and reim)
-        voltages.set_chunking(&[self.capacity, 2, CHANNELS, 2])?;
-        voltages.set_compression(0, true)?;
-        let mut idx = 0;
-        let mut read_idx = self.write_index;
-        loop {
-            let pl = self.container.get(read_idx).unwrap();
-            voltages.put((idx, .., .., ..), pl.into_ndarray().view())?;
-            idx += 1;
-            read_idx = (read_idx + 1) % self.capacity;
-            if read_idx == self.write_index {
-                break;
-            }
-        }
+        // We want chunk sizes of 16MiB, which works out to 2048 time samples
+        voltages.set_chunking(&[2048, 2, CHANNELS, 2])?;
 
-        // Close the netcdf file
-        drop(file);
+        let (a, b) = self.consecutive_views();
+        let a_len = a.len_of(Axis(0));
+        voltages.put((..a_len, .., .., ..), a)?;
+        voltages.put((a_len.., .., ..), b)?;
 
         // Finally, spawn (and detatch) a thread to move this file to the actual requested final spot on the disk
         // Due to https://github.com/rust-lang/rustup/issues/1239, this has to be a copy then delete instead of a move
@@ -156,7 +202,6 @@ pub fn dump_task(
     mut ring: DumpRing,
     payload_reciever: StaticReceiver<Payload>,
     signal_reciever: Receiver<Vec<u8>>,
-    start_time: Epoch,
     path: PathBuf,
     mut shutdown: broadcast::Receiver<()>,
 ) -> eyre::Result<()> {
@@ -187,16 +232,15 @@ pub fn dump_task(
             }
             let filename = format!("grex_dump-{}.nc", filename_suffix);
             info!("Dumping ringbuffer to file: {}", filename);
-            match ring.dump(&start_time, &path, &filename) {
+            match ring.dump(&path, &filename) {
                 Ok(_) => (),
                 Err(e) => warn!("Error in dumping buffer - {}", e),
             }
         } else {
             // If we're not dumping, we're pushing data into the ringbuffer
-            match payload_reciever.recv_ref_timeout(BLOCK_TIMEOUT) {
+            match payload_reciever.recv_timeout(BLOCK_TIMEOUT) {
                 Ok(pl) => {
-                    let ring_ref = ring.next_push();
-                    ring_ref.clone_from(&pl);
+                    ring.push(&pl);
                 }
                 Err(RecvTimeoutError::Timeout) => continue,
                 Err(RecvTimeoutError::Closed) => break,

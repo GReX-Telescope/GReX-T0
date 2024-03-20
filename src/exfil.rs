@@ -1,5 +1,6 @@
-use crate::capture::FIRST_PACKET;
-use crate::common::{Stokes, BLOCK_TIMEOUT, CHANNELS, PACKET_CADENCE};
+use crate::common::{
+    processed_payload_start_time, Stokes, BLOCK_TIMEOUT, CHANNELS, PACKET_CADENCE,
+};
 use byte_slice_cast::AsByteSlice;
 use eyre::eyre;
 use hifitime::prelude::*;
@@ -7,7 +8,7 @@ use psrdada::prelude::*;
 use sigproc_filterbank::write::WriteFilterbank;
 use std::fs::File;
 use std::path::Path;
-use std::{collections::HashMap, io::Write, str::FromStr, sync::atomic::Ordering};
+use std::{collections::HashMap, io::Write, str::FromStr};
 use thingbuf::mpsc::blocking::Receiver;
 use thingbuf::mpsc::errors::RecvTimeoutError;
 use tokio::sync::broadcast;
@@ -46,7 +47,6 @@ pub fn dummy_consumer(
 pub fn dada_consumer(
     key: i32,
     stokes_rcv: Receiver<Stokes>,
-    payload_start: Epoch,
     downsample_factor: usize,
     window_size: usize,
     mut shutdown: broadcast::Receiver<()>,
@@ -94,11 +94,8 @@ pub fn dada_consumer(
             // Timestamp first one
             if first_payload {
                 first_payload = false;
-                // The first payload we receive will be payload #1 (as we armed and triggered)
-                // We'll compute the timestamp via the first payload count and the cadence
-                let first_payload_time = payload_start
-                    + (PACKET_CADENCE * FIRST_PACKET.load(Ordering::Acquire) as f64).seconds();
-                let timestamp_str = heimdall_timestamp(&first_payload_time);
+                let time = processed_payload_start_time();
+                let timestamp_str = heimdall_timestamp(&time);
                 header.insert("UTC_START".to_owned(), timestamp_str);
                 // Write the single header
                 // Safety: All these header keys and values are valid
@@ -128,7 +125,6 @@ pub fn dada_consumer(
 /// Basically the same as the dada consumer, except write to a filterbank instead with no chunking
 pub fn filterbank_consumer(
     stokes_rcv: Receiver<Stokes>,
-    payload_start: Epoch,
     downsample_factor: usize,
     path: &Path,
     mut shutdown: broadcast::Receiver<()>,
@@ -159,9 +155,8 @@ pub fn filterbank_consumer(
                 // Timestamp first one
                 if first_payload {
                     first_payload = false;
-                    let first_payload_time = payload_start
-                        + (PACKET_CADENCE * FIRST_PACKET.load(Ordering::Acquire) as f64).seconds();
-                    fb.tstart = Some(first_payload_time.to_mjd_utc_days());
+                    let time = processed_payload_start_time();
+                    fb.tstart = Some(time.to_mjd_tai_days());
                     // Write out the header
                     file.write_all(&fb.header_bytes()).unwrap();
                 }

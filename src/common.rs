@@ -2,17 +2,41 @@
 
 use arrayvec::ArrayVec;
 use hifitime::prelude::*;
-use ndarray::{s, Array3, ArrayView};
+use ndarray::prelude::*;
 use num_complex::Complex;
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc, Mutex, OnceLock,
+};
 
 /// Number of frequency channels (set by gateware)
 pub const CHANNELS: usize = 2048;
-/// How sure are we?
+/// True packet cadence, set by the size of the FFT (4096) and the sampling time (2ns)
 pub const PACKET_CADENCE: f64 = 8.192e-6;
 /// Standard timeout for blocking ops
 pub const BLOCK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+/// Global atomic to hold the payload count of the first packet
+pub static FIRST_PACKET: AtomicU64 = AtomicU64::new(0);
 
 pub type Stokes = ArrayVec<f32, CHANNELS>;
+
+/// Get the global, true packet start time of payload 0, not necessarily the first one we processed
+pub fn payload_start_time() -> &'static Arc<Mutex<Option<Epoch>>> {
+    static PACKET_START_TIME: OnceLock<Arc<Mutex<Option<Epoch>>>> = OnceLock::new();
+    PACKET_START_TIME.get_or_init(|| Arc::new(Mutex::new(None)))
+}
+
+/// Get the true time of the data in a given payload count
+pub fn payload_time(count: u64) -> Epoch {
+    let payload_zero_time = payload_start_time().lock().unwrap().unwrap();
+    payload_zero_time + Duration::from_seconds(count as f64 * PACKET_CADENCE)
+}
+
+/// Get the Epoch of the first payload we processed (not necessarily Payload 0)
+pub fn processed_payload_start_time() -> Epoch {
+    let first_processed_packet = FIRST_PACKET.load(Ordering::Acquire);
+    payload_time(first_processed_packet)
+}
 
 /// The complex number representing the voltage of a single channel
 #[derive(Debug, Clone, Copy)]
@@ -58,49 +82,33 @@ impl Default for Payload {
     }
 }
 
+/// Return the real time of a given packet count
+// pub fn payload_real_time(payload_count: u64) -> Epoch {
+//     let second_offset = (payload_count as f64 * PACKET_CADENCE).seconds();
+//     *start_time + second_offset
+// }
+
 impl Payload {
     /// Calculate the Stokes-I parameter for this payload
     pub fn stokes_i(&self) -> Stokes {
         stokes_i(&self.pol_a, &self.pol_b)
     }
 
-    pub fn packed_pols(&self) -> (&[i8], &[i8]) {
-        // # Safety
-        // - Data is valid for reads of len as each pol has exactly CHANNELS * 2 bytes
-        // - and is contiguous as per the spec of Complex<i8>
-        // - Data is initialized at this point as Self has been constructed
-        // - Data will not be mutated as this function takes an immutable borrow
-        // - Total len is smaller than isize::MAX
-        let bytes_a = unsafe {
-            std::slice::from_raw_parts(
-                std::ptr::addr_of!(self.pol_a).cast::<i8>(),
-                CHANNELS * 2, // Real + Im for each element
-            )
-        };
-        let bytes_b = unsafe {
-            std::slice::from_raw_parts(
-                std::ptr::addr_of!(self.pol_b).cast::<i8>(),
-                CHANNELS * 2, // Real + Im for each element
-            )
-        };
-        (bytes_a, bytes_b)
-    }
-
-    // ndarray of size [(pol_a,pol_b), CHANNELS, (re,im)]
-    pub fn into_ndarray(&self) -> Array3<i8> {
-        let mut buf = Array3::zeros((2, CHANNELS, 2));
-        let (a, b) = self.packed_pols();
-        let a = ArrayView::from_shape((CHANNELS, 2), a).expect("Failed to make array view");
-        let b = ArrayView::from_shape((CHANNELS, 2), b).expect("Failed to make array view");
-        // And assign
-        buf.slice_mut(s![0, .., ..]).assign(&a);
-        buf.slice_mut(s![1, .., ..]).assign(&b);
-        buf
-    }
-
-    /// Return the real UTC time of this packet
-    pub fn real_time(&self, start_time: &Epoch) -> Epoch {
-        let second_offset = (self.count as f64 * PACKET_CADENCE).seconds();
-        *start_time + second_offset
+    /// Yields an [`ndarray::ArrayView3`] of dimensions (Polarization, Channel, Real/Imaginary)
+    pub fn as_ndarray_data_view(&self) -> ArrayView3<i8> {
+        // C-array format, so the pol_a, pol_b chunk is in memory as
+        //        POL A               POL B
+        //  CH1   CH2   CH3  ...  CH1   CH2   CH3
+        // [R I] [R I] [R I] ... [R I] [R I] [R 1]
+        // Which implies a tensor with dimensions Pols (2), Chan (2048), Reim (2)
+        // As the first index is the slowest changing in row-major (C) languages
+        let raw_ptr = self.pol_a.as_ptr();
+        // Safety:
+        // - The elements seen by moving ptr live as long 'self and are not mutably aliased
+        // - The result of ptr.add() is non-null and aligned
+        // - It is safe to .offset() the pointer repeatedely along all axes (it's all bytes)
+        // - The stides are non-negative
+        // - The product of the non-zero axis lenghts (2*CHANNELS*2) does not exceed isize::MAX
+        unsafe { ArrayView::from_shape_ptr((2, CHANNELS, 2), std::mem::transmute(raw_ptr)) }
     }
 }

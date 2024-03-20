@@ -1,8 +1,8 @@
+use crate::common::processed_payload_start_time;
 use crate::fpga::Device;
 use crate::{capture::Stats, common::BLOCK_TIMEOUT};
-use actix_web::{dev::Server, get, web, App, HttpServer};
+use actix_web::{dev::Server, get, App, HttpServer};
 use actix_web::{HttpResponse, Responder};
-use hifitime::prelude::*;
 use paste::paste;
 use prometheus::{
     register_gauge, register_gauge_vec, register_int_gauge, Gauge, GaugeVec, IntGauge, TextEncoder,
@@ -73,15 +73,16 @@ static_prom!(
 );
 
 #[get("/metrics")]
-async fn metrics(_: web::Data<Epoch>) -> impl Responder {
+async fn metrics() -> impl Responder {
     let encoder = TextEncoder::new();
     let metric_families = prometheus::gather();
     HttpResponse::Ok().body(encoder.encode_to_string(&metric_families).unwrap())
 }
 
 #[get("/start_time")]
-async fn start_time(data: web::Data<Epoch>) -> impl Responder {
-    HttpResponse::Ok().body(data.to_mjd_tai_days().to_string())
+async fn start_time() -> impl Responder {
+    let time = processed_payload_start_time();
+    HttpResponse::Ok().body(time.to_mjd_tai_days().to_string())
 }
 
 fn update_spec(device: &mut Device) -> eyre::Result<()> {
@@ -186,18 +187,13 @@ pub fn monitor_task(
     Ok(())
 }
 
-pub fn start_web_server(metrics_port: u16, packet_start: Epoch) -> eyre::Result<Server> {
+pub fn start_web_server(metrics_port: u16) -> eyre::Result<Server> {
     info!("Starting metrics webserver");
     // Create the server coroutine
-    let server = HttpServer::new(move || {
-        App::new()
-            .app_data(web::Data::new(packet_start))
-            .service(metrics)
-            .service(start_time)
-    })
-    .bind(("0.0.0.0", metrics_port))?
-    .workers(1)
-    .run();
+    let server = HttpServer::new(move || App::new().service(metrics).service(start_time))
+        .bind(("0.0.0.0", metrics_port))?
+        .workers(1)
+        .run();
     // And return the coroutine for the caller to spawn
     Ok(server)
 }
