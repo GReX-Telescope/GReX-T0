@@ -97,7 +97,11 @@ impl DumpRing {
     }
 
     // Pack the ring into an array of [time, (pol_a, pol_b), channel, (re, im)]
-    pub fn dump(&self, path: &Path, filename: &str) -> eyre::Result<()> {
+    pub fn dump(&mut self, path: &Path, filename: &str) -> eyre::Result<()> {
+        // Reset the write ptr back to zero and set the buffer as empty
+        self.write_ptr = 0;
+        self.full = false;
+
         // Create a tmpfile for this dump, as that will be on the OS drive (probably),
         // which should be faster storage than the result path
         let tmp_path = std::env::temp_dir();

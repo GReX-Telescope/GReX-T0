@@ -1,8 +1,9 @@
 //! Logic for capturing raw packets from the NIC, parsing them into payloads, and sending them to other processing threads
 
-use crate::common::Payload;
+use crate::common::{Payload, FIRST_PACKET};
 use socket2::{Domain, Socket, Type};
 use std::net::UdpSocket;
+use std::sync::atomic::Ordering;
 use std::{
     net::SocketAddr,
     time::{Duration, Instant},
@@ -122,6 +123,7 @@ impl Capture {
                 self.first_payload = false;
                 // And send the first one
                 payload_sender.send(*payload)?;
+                FIRST_PACKET.swap(payload.count, Ordering::Acquire);
                 self.next_expected_count = payload.count + 1;
             } else if payload.count == self.next_expected_count {
                 self.next_expected_count += 1;
