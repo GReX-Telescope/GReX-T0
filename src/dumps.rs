@@ -151,7 +151,7 @@ impl DumpRing {
         let (a, b) = self.consecutive_views();
         let a_len = a.len_of(Axis(0));
         voltages.put((..a_len, .., .., ..), a)?;
-        voltages.put((a_len.., .., ..), b)?;
+        voltages.put((a_len.., .., .., ..), b)?;
 
         // Finally, spawn (and detatch) a thread to move this file to the actual requested final spot on the disk
         // Due to https://github.com/rust-lang/rustup/issues/1239, this has to be a copy then delete instead of a move
