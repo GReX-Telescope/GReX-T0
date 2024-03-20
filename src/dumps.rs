@@ -46,6 +46,13 @@ impl DumpRing {
         }
     }
 
+    /// Reset the ring buffer state (empty)
+    pub fn reset(&mut self) {
+        self.write_ptr = 0;
+        self.full = false;
+        self.oldest = None;
+    }
+
     pub fn push(&mut self, pl: &Payload) {
         // Copy the data into the slice pointed to by the write_ptr
         let data_view = pl.as_ndarray_data_view();
@@ -167,8 +174,7 @@ impl DumpRing {
         }
 
         // Reset the write ptr back to zero and set the buffer as empty
-        self.write_ptr = 0;
-        self.full = false;
+        self.reset();
 
         Ok(())
     }
