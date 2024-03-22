@@ -123,6 +123,11 @@ impl DumpRing {
         mjd.put_attribute("long_name", "TAI days since the MJD Epoch")?;
 
         // Fill times using the payload count of the oldest sample in the ring buffer
+        if self.oldest.is_none() {
+            warn!("Tried to dump an empty voltage buffer");
+            return Ok(());
+        }
+
         let mjd_start = payload_time(self.oldest.unwrap()).to_mjd_tai_days();
         let mjd_end = mjd_start + self.capacity as f64 * PACKET_CADENCE / 86400f64; // candence in days
 
