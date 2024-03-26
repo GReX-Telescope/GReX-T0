@@ -103,6 +103,13 @@ impl DumpRing {
 
     // Pack the ring into an array of [time, (pol_a, pol_b), channel, (re, im)]
     pub fn dump(&mut self, path: &Path, filename: &str) -> eyre::Result<()> {
+        // Fill times using the payload count of the oldest sample in the ring buffer
+        if self.oldest.is_none() {
+            warn!("Tried to dump an empty voltage buffer");
+            // We didn't start to create a file, so we don't need to clean up one
+            return Ok(());
+        }
+
         // Create a tmpfile for this dump, as that will be on the OS drive (probably),
         // which should be faster storage than the result path
         let tmp_path = std::env::temp_dir();
@@ -119,12 +126,6 @@ impl DumpRing {
         let mut mjd = file.add_variable::<f64>("time", &["time"])?;
         mjd.put_attribute("units", "Days")?;
         mjd.put_attribute("long_name", "TAI days since the MJD Epoch")?;
-
-        // Fill times using the payload count of the oldest sample in the ring buffer
-        if self.oldest.is_none() {
-            warn!("Tried to dump an empty voltage buffer");
-            return Ok(());
-        }
 
         let mjd_start = payload_time(self.oldest.unwrap()).to_mjd_tai_days();
         let mjd_end = mjd_start + self.capacity as f64 * PACKET_CADENCE / 86400f64; // candence in days
