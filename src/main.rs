@@ -109,9 +109,9 @@ async fn main() -> eyre::Result<()> {
     // Fast path channels
     let (ex_s, ex_r) = channel(FAST_PATH_CHANNEL_SIZE);
 
-    // Less important channels, these don't have to be static
-    let (trig_s, trig_r) = channel(5);
-    let (stat_s, stat_r) = channel(100);
+    // Less important channels, these don't have to be static (and we don't need thingbuf)
+    let (trig_s, trig_r) = std::sync::mpsc::sync_channel(5);
+    let (stat_s, stat_r) = std::sync::mpsc::sync_channel(100);
 
     // Start the threads
     macro_rules! thread_spawn {

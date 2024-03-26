@@ -1,15 +1,13 @@
 use crate::common::processed_payload_start_time;
 use crate::fpga::Device;
 use crate::{capture::Stats, common::BLOCK_TIMEOUT};
-use actix_web::{dev::Server, get, App, HttpServer};
-use actix_web::{HttpResponse, Responder};
+use actix_web::{dev::Server, get, App, HttpResponse, HttpServer, Responder};
 use paste::paste;
 use prometheus::{
     register_gauge, register_gauge_vec, register_int_gauge, Gauge, GaugeVec, IntGauge, TextEncoder,
 };
+use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::sync::OnceLock;
-use thingbuf::mpsc::blocking::Receiver;
-use thingbuf::mpsc::errors::RecvTimeoutError;
 use tokio::sync::broadcast;
 use tracing::{info, warn};
 
@@ -133,15 +131,14 @@ pub fn monitor_task(
             break;
         }
         // Blocking here is ok, these are infrequent events
-        match stats.recv_ref_timeout(BLOCK_TIMEOUT) {
+        match stats.recv_timeout(BLOCK_TIMEOUT) {
             Ok(stat) => {
                 packet_gauge().set(stat.processed.try_into().unwrap());
                 drop_gauge().set(stat.drops.try_into().unwrap());
                 shuffled_gauge().set(stat.shuffled.try_into().unwrap());
             }
             Err(RecvTimeoutError::Timeout) => continue,
-            Err(RecvTimeoutError::Closed) => break,
-            Err(_) => unreachable!(),
+            Err(RecvTimeoutError::Disconnected) => break,
         }
 
         // Update channel data from FPGA

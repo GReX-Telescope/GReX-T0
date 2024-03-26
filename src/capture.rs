@@ -4,11 +4,12 @@ use crate::common::{Payload, FIRST_PACKET};
 use socket2::{Domain, Socket, Type};
 use std::net::UdpSocket;
 use std::sync::atomic::Ordering;
+use std::sync::mpsc::SyncSender;
 use std::{
     net::SocketAddr,
     time::{Duration, Instant},
 };
-use thingbuf::mpsc::blocking::{Sender, StaticSender};
+use thingbuf::mpsc::blocking::StaticSender;
 use tokio::sync::broadcast;
 use tracing::{error, info, warn};
 
@@ -90,7 +91,7 @@ impl Capture {
     pub fn start(
         &mut self,
         payload_sender: StaticSender<Payload>,
-        stats_send: Sender<Stats>,
+        stats_send: SyncSender<Stats>,
         stats_polling_time: Duration,
         mut shutdown: broadcast::Receiver<()>,
     ) -> eyre::Result<()> {
@@ -168,7 +169,7 @@ pub struct Stats {
 pub fn cap_task(
     port: u16,
     cap_send: StaticSender<Payload>,
-    stats_send: Sender<Stats>,
+    stats_send: SyncSender<Stats>,
     shutdown: broadcast::Receiver<()>,
 ) -> eyre::Result<()> {
     info!("Starting capture task!");

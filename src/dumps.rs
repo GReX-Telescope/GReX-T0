@@ -4,17 +4,15 @@ use crate::common::{payload_time, Payload, BLOCK_TIMEOUT, CHANNELS, PACKET_CADEN
 use crate::exfil::{BANDWIDTH, HIGHBAND_MID_FREQ};
 use hifitime::prelude::*;
 use ndarray::prelude::*;
+use std::sync::mpsc::{Receiver, SyncSender};
 use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
     str::FromStr,
 };
-use thingbuf::mpsc::{
-    blocking::{Receiver, Sender, StaticReceiver},
-    errors::RecvTimeoutError,
-};
+use thingbuf::mpsc::{blocking::StaticReceiver, errors::RecvTimeoutError};
 use tokio::{net::UdpSocket, sync::broadcast};
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 /// The voltage dump ringbuffer
 #[derive(Debug)]
@@ -173,7 +171,13 @@ impl DumpRing {
         let final_file_path = path.join(filename);
         if final_file_path != tmp_file_path {
             let _ = std::thread::spawn(move || {
-                std::fs::copy(tmp_file_path.clone(), final_file_path).expect("Couldn't move file");
+                match std::fs::copy(tmp_file_path.clone(), final_file_path) {
+                    Ok(_) => (),
+                    Err(e) => error!(
+                        "Couldn't move the file to destination, deleting anyway - {}",
+                        e
+                    ),
+                }
                 std::fs::remove_file(tmp_file_path).expect("Couldn't remove tmp file");
             });
         }
@@ -186,7 +190,7 @@ impl DumpRing {
 }
 
 pub async fn trigger_task(
-    sender: Sender<Vec<u8>>,
+    sender: SyncSender<Vec<u8>>,
     port: u16,
     mut shutdown: broadcast::Receiver<()>,
 ) -> eyre::Result<()> {
@@ -216,7 +220,7 @@ pub async fn trigger_task(
 pub fn dump_task(
     mut ring: DumpRing,
     payload_reciever: StaticReceiver<Payload>,
-    signal_reciever: Receiver<Vec<u8>>,
+    signal_receiver: Receiver<Vec<u8>>,
     path: PathBuf,
     mut shutdown: broadcast::Receiver<()>,
 ) -> eyre::Result<()> {
@@ -230,7 +234,7 @@ pub fn dump_task(
             break;
         }
         // First check if we need to dump, as that takes priority
-        if let Ok(bytes) = signal_reciever.try_recv() {
+        if let Ok(bytes) = signal_receiver.try_recv() {
             let mut filename_suffix = match String::from_utf8(bytes) {
                 Ok(s) => s,
                 Err(_) => {
@@ -250,6 +254,12 @@ pub fn dump_task(
             match ring.dump(&path, &filename) {
                 Ok(_) => (),
                 Err(e) => warn!("Error in dumping buffer - {}", e),
+            }
+            // The dump may have taken a while, in which time the downstream tasked may have asked for *more* triggers
+            // This would imply that the signal_receiver could be full of stuff which would immediatly dump the next loop.
+            // To avoid this, we're going to clear out anything in that receiver now (which are triggers that occured during dumping)
+            while signal_receiver.try_recv().is_ok() {
+                // Do nothing
             }
         } else {
             // If we're not dumping, we're pushing data into the ringbuffer
