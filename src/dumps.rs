@@ -12,7 +12,7 @@ use std::{
 };
 use thingbuf::mpsc::{blocking::StaticReceiver, errors::RecvTimeoutError};
 use tokio::{net::UdpSocket, sync::broadcast};
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 /// The voltage dump ringbuffer
 #[derive(Debug)]
