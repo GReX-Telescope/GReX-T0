@@ -110,11 +110,8 @@ impl DumpRing {
             return Ok(());
         }
 
-        // Create a tmpfile for this dump, as that will be on the OS drive (probably),
-        // which should be faster storage than the result path
-        let tmp_path = std::env::temp_dir();
-        let tmp_file_path = tmp_path.join(filename);
-        let mut file = netcdf::create(tmp_file_path.clone())?;
+        let file_path = path.join(filename);
+        let mut file = netcdf::create(file_path)?;
 
         // Add the file dimensions
         file.add_dimension("time", self.capacity)?;
@@ -164,25 +161,6 @@ impl DumpRing {
         let a_len = a.len_of(Axis(0));
         voltages.put((..a_len, .., .., ..), a)?;
         voltages.put((a_len.., .., .., ..), b)?;
-
-        // Finally, spawn (and detatch) a thread to move this file to the actual requested final spot on the disk
-        // Due to https://github.com/rust-lang/rustup/issues/1239, this has to be a copy then delete instead of a move
-
-        // If the final path is the same as the tmp path (as in we're dumping to tmp anyway)
-        // No need to do this
-        let final_file_path = path.join(filename);
-        if final_file_path != tmp_file_path {
-            let _ = std::thread::spawn(move || {
-                match std::fs::copy(tmp_file_path.clone(), final_file_path.clone()) {
-                    Ok(_) => (),
-                    Err(e) => {
-                        error!("Couldn't move the file to destination, deleting anyway - {e}")
-                    }
-                }
-                std::fs::remove_file(tmp_file_path).expect("Couldn't remove tmp file");
-                info!("Finished copying dump file - {final_file_path:?}");
-            });
-        }
 
         // Reset the write ptr back to zero and set the buffer as empty
         self.reset();
