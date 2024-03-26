@@ -172,14 +172,14 @@ impl DumpRing {
         let final_file_path = path.join(filename);
         if final_file_path != tmp_file_path {
             let _ = std::thread::spawn(move || {
-                match std::fs::copy(tmp_file_path.clone(), final_file_path) {
+                match std::fs::copy(tmp_file_path.clone(), final_file_path.clone()) {
                     Ok(_) => (),
-                    Err(e) => error!(
-                        "Couldn't move the file to destination, deleting anyway - {}",
-                        e
-                    ),
+                    Err(e) => {
+                        error!("Couldn't move the file to destination, deleting anyway - {e}")
+                    }
                 }
                 std::fs::remove_file(tmp_file_path).expect("Couldn't remove tmp file");
+                info!("Finished copying dump file - {final_file_path:?}");
             });
         }
 
@@ -259,8 +259,13 @@ pub fn dump_task(
             // The dump may have taken a while, in which time the downstream tasked may have asked for *more* triggers
             // This would imply that the signal_receiver could be full of stuff which would immediatly dump the next loop.
             // To avoid this, we're going to clear out anything in that receiver now (which are triggers that occured during dumping)
+            let mut skipped_triggers = 0;
             while signal_receiver.try_recv().is_ok() {
-                // Do nothing
+                // Throw them out
+                skipped_triggers += 1;
+            }
+            if skipped_triggers > 0 {
+                warn!("We received {skipped_triggers} triggers to dump while we were dumping, these were skipped");
             }
         } else {
             // If we're not dumping, we're pushing data into the ringbuffer
