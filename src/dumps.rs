@@ -158,7 +158,7 @@ impl DumpRing {
         // Write to the file, one timestep at a time (chunking in pols, channels, and reim)
         // We want chunk sizes of 16MiB, which works out to 2048 time samples
         voltages.set_chunking(&[2048, 2, CHANNELS, 2])?;
-        voltages.set_compression(1, true)?;
+        //voltages.set_compression(1, true)?;
 
         let (a, b) = self.consecutive_views();
         let a_len = a.len_of(Axis(0));
