@@ -85,6 +85,10 @@ async fn main() -> eyre::Result<()> {
     {
         // In our own little scope because we don't want to hold a non-async mutex across an
         // await boundary.
+        info!(
+            "Packet 0 is coincident with {} MJD (TAI)",
+            packet_start.to_mjd_tai_days()
+        );
         let mut ps = payload_start_time().lock().unwrap();
         *ps = Some(packet_start);
     }

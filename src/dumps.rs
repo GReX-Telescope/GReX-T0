@@ -162,6 +162,9 @@ impl DumpRing {
         voltages.put((..a_len, .., .., ..), a)?;
         voltages.put((a_len.., .., .., ..), b)?;
 
+        // Make sure the file is completley written to the disk
+        file.sync()?;
+
         // Reset the write ptr back to zero and set the buffer as empty
         self.reset();
 
