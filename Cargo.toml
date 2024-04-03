@@ -36,6 +36,11 @@ whittaker_smoother = "0.1"
 median = "0.3"
 netcdf = "0.9"
 paste = "1"
+faer = "0.18"
+faer-ext = { version = "0.1", features = ["ndarray"] }
+
+[profile.dev.package.faer]
+opt-level = 3
 
 [patch.crates-io]
 # Once a new release of hdf5 is pushed, and netcdf follows, this can be removed

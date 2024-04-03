@@ -13,3 +13,4 @@ pub mod fpga;
 pub mod injection;
 pub mod monitoring;
 pub mod processing;
+pub mod rfi_cleaning;
