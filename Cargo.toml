@@ -36,7 +36,7 @@ whittaker_smoother = "0.1"
 median = "0.3"
 netcdf = "0.9"
 paste = "1"
-faer = "0.18"
+faer = { version = "0.18", features = ["rand"] }
 faer-ext = { version = "0.1", features = ["ndarray"] }
 
 [profile.dev.package.faer]

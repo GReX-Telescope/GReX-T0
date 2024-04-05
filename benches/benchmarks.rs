@@ -1,9 +1,12 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use faer::prelude::*;
+use faer::stats::StandardMat;
 use grex_t0::{
     common::{payload_start_time, Payload},
     dumps::DumpRing,
 };
 use hifitime::Epoch;
+use rand::prelude::*;
 
 pub fn push_ring(c: &mut Criterion) {
     let mut dr = DumpRing::new(15);
@@ -51,5 +54,36 @@ pub fn dump_ring(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, push_ring, inject_complex, dump_ring);
+pub fn detrend_freq(c: &mut Criterion) {
+    // Dentrend a large matrix
+    let nm = StandardMat {
+        nrows: 16384,
+        ncols: 2048,
+    };
+    let mut sample: Mat<f32> = nm.sample(&mut rand::thread_rng());
+    c.bench_function("detrend_freq", |b| {
+        b.iter(|| grex_t0::rfi_cleaning::detrend_freq_inplace(sample.as_mut(), 4))
+    });
+}
+
+pub fn detrend_time(c: &mut Criterion) {
+    // Dentrend a large matrix
+    let nm = StandardMat {
+        nrows: 16384,
+        ncols: 2048,
+    };
+    let mut sample: Mat<f32> = nm.sample(&mut rand::thread_rng());
+    c.bench_function("detrend_time", |b| {
+        b.iter(|| grex_t0::rfi_cleaning::detrend_time_inplace(sample.as_mut(), 4))
+    });
+}
+
+criterion_group!(
+    benches,
+    push_ring,
+    inject_complex,
+    dump_ring,
+    detrend_freq,
+    detrend_time,
+);
 criterion_main!(benches);
