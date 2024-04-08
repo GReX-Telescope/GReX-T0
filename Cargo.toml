@@ -23,7 +23,7 @@ byte-slice-cast = "1"
 lending-iterator = "0.1"
 thingbuf = { version = "0.1", features = ["static"] }
 arrayvec = "0.7"
-sigproc_filterbank = "0.3"
+sigproc_filterbank = "0.4"
 hifitime = "3"
 memmap2 = "0.9"
 rand_distr = "0.4"

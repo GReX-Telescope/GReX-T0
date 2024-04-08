@@ -2352,9 +2352,9 @@ dependencies = [
 
 [[package]]
 name = "sigproc_filterbank"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "539541f0af0168e86f88cc9f66d9b427e0d35163a8bcb13526094035cc03d819"
+checksum = "8b813fc64bad93877bc1d76d2d19b556e94b6374af885403ee6d0aa5c07168f8"
 dependencies = [
  "nom",
  "thiserror",

@@ -87,7 +87,7 @@ pub fn dada_consumer(
                 return Ok(());
             }
             // Grab the next stokes parameters (already downsampled)
-            let mut stokes = stokes_rcv
+            let stokes = stokes_rcv
                 .recv_ref()
                 .ok_or_else(|| eyre!("Channel closed"))?;
             debug_assert_eq!(stokes.len(), CHANNELS);
@@ -101,9 +101,6 @@ pub fn dada_consumer(
                 // Safety: All these header keys and values are valid
                 unsafe { hc.write_header(&header).unwrap() };
             }
-            // Zero the first and last 250 sample to remove the aliasing artifacts from the edges
-            stokes[0..=250].fill(0.0);
-            stokes[1797..=2047].fill(0.0);
             // Write the block
             block.write_all(stokes.as_byte_slice()).unwrap();
             // Increase our count
