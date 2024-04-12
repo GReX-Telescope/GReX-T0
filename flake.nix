@@ -85,7 +85,6 @@
         checks = self.checks.${system};
         packages = with pkgs; [
           alejandra
-          codespell
           cargo-machete
           cargo-outdated
           rust-analyzer

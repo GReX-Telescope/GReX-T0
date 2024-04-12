@@ -10,51 +10,22 @@ on:
       - main
 
 jobs:
-  check:
-    name: Check/Lint
+  build:
+    name: Check and Build Nix Package
     runs-on: ubuntu-latest
     steps:
       - name: git checkout
         uses: actions/checkout@v3
+
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
+
       - uses: DeterminateSystems/magic-nix-cache-action@main
+
       - name: Check Nixpkgs inputs
         uses: DeterminateSystems/flake-checker-action@main
         with:
           fail-mode: true
 
-      # Nix-specific logic begins here
-      - name: Check Rust formatting
-        run: |
-          nix develop --command cargo fmt --all --check
-      - name: Check Clippy lints
-        run: |
-          nix develop --command cargo clippy --all-targets
-
-  test_and_build:
-    name: Test and build library
-    needs: check
-    runs-on: ubuntu-latest
-    steps:
-      - name: git checkout
-        uses: actions/checkout@v3
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
-      - name: Set up Rust cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: psrdada-rs-${{ hashFiles('**/Cargo.lock') }}
-      - name: Test library
-        run: |
-          nix develop --command cargo test
-      - name: Build library
-        run: |
-          nix develop --command cargo build
+      - name: Build default package
+        run: nix build
