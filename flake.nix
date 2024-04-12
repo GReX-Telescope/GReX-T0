@@ -1,8 +1,16 @@
 {
-  description = "GReX T0 Nix Dev Env";
+  description = "GReX T0 Nix Flake";
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+
     flake-utils.url = "github:numtide/flake-utils";
+
+    crane = {
+      url = "github:ipetkov/crane";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+      };
+    };
 
     psrdada = {
       url = "github:kiranshila/psrdada.nix";
@@ -11,58 +19,77 @@
         flake-utils.follows = "flake-utils";
       };
     };
-
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        flake-utils.follows = "flake-utils";
-      };
-    };
   };
 
   outputs = {
+    self,
     nixpkgs,
     flake-utils,
     psrdada,
-    rust-overlay,
+    crane,
     ...
   }:
     flake-utils.lib.eachDefaultSystem (system: let
-      overlays = [(import rust-overlay)];
-      pkgs = import nixpkgs {inherit system overlays;};
+      pkgs = import nixpkgs {inherit system;};
+      inherit (pkgs) lib;
+      craneLib = crane.lib.${system};
 
-      runCiLocally = pkgs.writeScriptBin "ci-local" ''
-        echo "Checking Rust formatting..."
-        cargo fmt --check
+      # T0 depends on an fpg file to build the SNAP interface,
+      # so that must be deterministically included as well
+      fpgFilter = path: _type: null != builtins.match ".*fpg$" path;
+      fpgOrCargo = path: type: (fpgFilter path type) || (craneLib.filterCargoSources path type);
+      src = lib.cleanSourceWith {
+        src = craneLib.path ./.; # The original, unfiltered source
+        filter = fpgOrCargo;
+      };
 
-        echo "Checking clippy..."
-        cargo clippy --all-targets
-
-        echo "Testing Rust code..."
-        cargo test
-      '';
-
-      nativeBuildInputs = with pkgs; [rustPlatform.bindgenHook pkg-config];
-      buildInputs =
-        [runCiLocally]
-        ++ (with pkgs; [
-          # Rust stuff, some stuff dev-only
-          (rust-bin.nightly.latest.default.override {
-            extensions = ["rust-src" "rust-analyzer"];
-          })
-
-          # The C-libraries needed to statically link
-          psrdada.packages.${system}.default
+      commonArgs = {
+        inherit src;
+        nativeBuildInputs = with pkgs; [
+          rustPlatform.bindgenHook
+          pkg-config
+        ];
+        buildInputs = with pkgs; [
           netcdf
           hdf5
+          psrdada.packages.${system}.default
+        ];
+      };
 
-          # Linting support
-          codespell
+      cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+
+      my-crate = craneLib.buildPackage (commonArgs
+        // {
+          inherit cargoArtifacts;
+          NIX_OUTPATH_USED_AS_RANDOM_SEED = "plsfindfrb";
+        });
+    in {
+      checks = {
+        inherit my-crate;
+        my-crate-clippy = craneLib.cargoClippy (commonArgs
+          // {
+            inherit cargoArtifacts;
+            cargoClippyExtraArgs = "--all-targets -- --deny warnings";
+          });
+        my-crate-fmt = craneLib.cargoFmt {inherit src;};
+      };
+
+      packages = {
+        default = my-crate;
+        inherit my-crate;
+      };
+
+      apps.default = flake-utils.lib.mkApp {drv = my-crate;};
+
+      devShells.default = craneLib.devShell {
+        checks = self.checks.${system};
+        packages = with pkgs; [
           alejandra
-        ]);
-    in
-      with pkgs; {
-        devShells.default = mkShell {inherit buildInputs nativeBuildInputs;};
-      });
+          codespell
+          cargo-machete
+          cargo-outdated
+          rust-analyzer
+        ];
+      };
+    });
 }
