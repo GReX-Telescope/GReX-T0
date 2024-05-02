@@ -261,7 +261,8 @@ impl DumpRing {
                 + FIRST_PACKET.load(Ordering::Acquire);
 
             // Now find where in the block this sample lies (hopefully we didn't miss it, throwing an error if we did)
-            let mut begin_sample = true_sample - DUMP_SIZE / 2;
+            // DUMP_SIZE is even, so we'll bias the sample one to the left
+            let mut begin_sample = true_sample - DUMP_SIZE / 2 + 1;
             let mut end_sample = true_sample + DUMP_SIZE / 2;
 
             // Check if we totally missed the burst
