@@ -118,8 +118,6 @@ impl DumpRing {
         let oldest = self.oldest.unwrap();
         let newest = oldest + (self.capacity as u64) - 1;
 
-        let write_size = (newest - oldest + 1) as usize;
-
         // Check bounds
         if start_sample < oldest
             || start_sample > newest
@@ -135,7 +133,7 @@ impl DumpRing {
         let mut file = netcdf::create(path)?;
 
         // Add the file dimensions
-        file.add_dimension("time", write_size)?;
+        file.add_dimension("time", DUMP_SIZE as usize)?;
         file.add_dimension("pol", 2)?;
         file.add_dimension("freq", CHANNELS)?;
         file.add_dimension("reim", 2)?;
@@ -149,7 +147,7 @@ impl DumpRing {
         let mjd_end = payload_time(stop_sample).to_mjd_tai_days();
 
         // And create the range
-        let mjds = Array::linspace(mjd_start, mjd_end, write_size);
+        let mjds = Array::linspace(mjd_start, mjd_end, DUMP_SIZE as usize);
         mjd.put(.., mjds.view())?;
 
         let mut pol = file.add_string_variable("pol", &["pol"])?;
@@ -199,7 +197,7 @@ impl DumpRing {
             let start_idx = (start_sample - oldest) as usize;
             let stop_idx = (stop_sample - oldest) as usize;
             let slice = a.slice(s![start_idx..=stop_idx, .., .., ..]);
-            voltages.put((..write_size, .., .., ..), slice)?;
+            voltages.put((..DUMP_SIZE as usize, .., .., ..), slice)?;
         }
         // 2. The range is between the two chunks
         else if oldest as usize + a_len > start_sample as usize {
@@ -221,7 +219,7 @@ impl DumpRing {
             let start_idx = start_sample as usize - oldest_b;
             let stop_idx = stop_sample as usize - oldest_b;
             let slice = b.slice(s![start_idx..=stop_idx, .., .., ..]);
-            voltages.put((..write_size, .., .., ..), slice)?;
+            voltages.put((..DUMP_SIZE as usize, .., .., ..), slice)?;
         }
 
         // Make sure the file is completley written to the disk
