@@ -258,7 +258,7 @@ impl DumpRing {
 
             // Check if we totally missed the burst
             if oldest > end_sample {
-                bail!("Ring buffer doesn't contain the requested sample, consider increasing the size of the buffer");
+                bail!("Ring buffer doesn't contain the requested sample, consider increasing the size of the buffer. The oldest sample in the buffer is {} and we wanted samples {}-{}", oldest, begin_sample, end_sample);
             }
             if newest < begin_sample {
                 bail!("Ring buffer doesn't contain the requested sample, but strangely we wanted a sample from the future, this shouldn't happen");
