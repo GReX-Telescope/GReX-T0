@@ -185,6 +185,15 @@ impl DumpRing {
 
         // There are three situations:
         // 1. The range is entirely in the first half
+
+        dbg!(start_sample);
+        dbg!(stop_sample);
+
+        dbg!(oldest);
+        dbg!(newest);
+
+        dbg!(a_len);
+
         if oldest as usize + a_len > stop_sample as usize {
             // Trim the chunk and write
             let start_idx = (start_sample - oldest) as usize;
