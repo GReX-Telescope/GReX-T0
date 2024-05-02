@@ -232,7 +232,7 @@ impl DumpRing {
         // Goals: given tm.specnum, find the un-downsampled specnum in our block and write out a block centered at that point
         // As the ringbuffer will be in two segments, we need to deal with the possibility that the burst is across a ringbuffer boundary
 
-        let filename = format!("{}-{}.nc", FILENAME_PREFIX, tm.key);
+        let filename = format!("{}-{}.nc", FILENAME_PREFIX, tm.candname);
 
         if let Some(oldest) = self.oldest {
             let newest = oldest + (self.capacity as u64) - 1;
@@ -248,7 +248,7 @@ impl DumpRing {
             // Specnum is which spectrum heimdall found the pulse in.
             // So, the sample number of specnum 0 is the FIRST_PACKET that we processed and the sample number of specnum 1 is the downsample of samples FIRST_PACKET..=downsample_factor+FIRST_PACKET
             // This is the *middle* sample integrated into that spectrum
-            let true_sample = tm.specnum as u64 * downsample_factor as u64 / 2
+            let true_sample = tm.itime as u64 * downsample_factor as u64 / 2
                 + FIRST_PACKET.load(Ordering::Acquire);
 
             // Now find where in the block this sample lies (hopefully we didn't miss it, throwing an error if we did)
@@ -283,8 +283,8 @@ impl DumpRing {
 
 #[derive(Debug, Deserialize)]
 pub struct TriggerMessage {
-    pub key: String,
-    pub specnum: u32,
+    pub candname: String,
+    pub itime: u32,
 }
 
 pub async fn trigger_task(
@@ -337,7 +337,7 @@ pub fn dump_task(
                 match serde_json::from_str::<TriggerMessage>(&s) {
                     Ok(tm) => {
                         // Send trigger to dump
-                        info!("Dumping candidate {} voltage to", tm.key);
+                        info!("Dumping candidate {} voltage to", tm.candname);
                         match ring.trigger_dump(&path, tm, 2u32.pow(downsample_power)) {
                             Ok(_) => (),
                             Err(e) => warn!("Error in dumping buffer: {}", e),
