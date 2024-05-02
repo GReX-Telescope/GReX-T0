@@ -335,32 +335,37 @@ pub fn dump_task(
             let tm_str = String::from_utf8(bytes);
 
             if let Ok(s) = tm_str {
-                if let Ok(tm) = serde_json::from_str::<TriggerMessage>(&s) {
-                    // Send trigger to dump
-                    info!("Dumping candidate {} voltage to", tm.key);
-                    match ring.trigger_dump(&path, tm, 2u32.pow(downsample_power)) {
-                        Ok(_) => (),
-                        Err(e) => warn!("Error in dumping buffer: {}", e),
-                    }
+                match serde_json::from_str::<TriggerMessage>(&s) {
+                    Ok(tm) => {
+                        // Send trigger to dump
+                        info!("Dumping candidate {} voltage to", tm.key);
+                        match ring.trigger_dump(&path, tm, 2u32.pow(downsample_power)) {
+                            Ok(_) => (),
+                            Err(e) => warn!("Error in dumping buffer: {}", e),
+                        }
 
-                    // The dump may have taken a while, in which time the downstream task may have asked for *more* triggers
-                    // This would imply that the signal_receiver could be full of stuff which would immediatly dump the next loop.
-                    // To avoid this, we're going to clear out anything in that receiver now (which are triggers that occured during dumping)
-                    let mut skipped_triggers = 0;
-                    while signal_receiver.try_recv().is_ok() {
-                        // Throw them out
-                        skipped_triggers += 1;
-                    }
-                    if skipped_triggers > 0 {
-                        warn!("We received {skipped_triggers} triggers to dump while we were dumping, these were skipped");
-                    }
+                        // The dump may have taken a while, in which time the downstream task may have asked for *more* triggers
+                        // This would imply that the signal_receiver could be full of stuff which would immediatly dump the next loop.
+                        // To avoid this, we're going to clear out anything in that receiver now (which are triggers that occured during dumping)
+                        let mut skipped_triggers = 0;
+                        while signal_receiver.try_recv().is_ok() {
+                            // Throw them out
+                            skipped_triggers += 1;
+                        }
+                        if skipped_triggers > 0 {
+                            warn!("We received {skipped_triggers} triggers to dump while we were dumping, these were skipped");
+                        }
 
-                    // Keep on loopin
-                    continue;
+                        // Keep on loopin
+                        continue;
+                    }
+                    Err(e) => {
+                        warn!("Error deserializing JSON trigger message - {}", e);
+                    }
                 }
+            } else {
+                warn!("Trigger message contained invalid UTF8");
             }
-            // Else
-            warn!("Incoming voltage dump trigger payload invalid");
         } else {
             // If we're not dumping, we're pushing data into the ringbuffer
             match payload_reciever.recv_timeout(BLOCK_TIMEOUT) {
