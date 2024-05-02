@@ -17,7 +17,7 @@ use tracing::{info, warn};
 
 // Just over 2 second window size (2^18)
 const DUMP_SIZE: u64 = 262144;
-const FILENAME_PREFIX: &str = "grex-dump";
+const FILENAME_PREFIX: &str = "grex_dump";
 
 /// The voltage dump ringbuffer
 #[derive(Debug)]
@@ -183,15 +183,6 @@ impl DumpRing {
 
         // There are three situations:
         // 1. The range is entirely in the first half
-
-        dbg!(start_sample);
-        dbg!(stop_sample);
-
-        dbg!(oldest);
-        dbg!(newest);
-
-        dbg!(a_len);
-
         if oldest as usize + a_len > stop_sample as usize {
             // Trim the chunk and write
             let start_idx = (start_sample - oldest) as usize;
