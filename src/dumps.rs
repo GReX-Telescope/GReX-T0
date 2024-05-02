@@ -297,7 +297,7 @@ pub async fn trigger_task(
     // Create the socket
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let sock = UdpSocket::bind(addr).await?;
-    let mut buf = vec![];
+    let mut buf = vec![0; 128];
     loop {
         tokio::select! {
             _ = shutdown.recv() => {
