@@ -337,7 +337,7 @@ pub fn dump_task(
                 match serde_json::from_str::<TriggerMessage>(&s) {
                     Ok(tm) => {
                         // Send trigger to dump
-                        info!("Dumping candidate {} voltage to", tm.candname);
+                        info!("Dumping candidate {}", tm.candname);
                         match ring.trigger_dump(&path, tm, 2u32.pow(downsample_power)) {
                             Ok(_) => (),
                             Err(e) => warn!("Error in dumping buffer: {}", e),
