@@ -160,7 +160,14 @@ async fn main() -> eyre::Result<()> {
         ),
         (
             "dump",
-            dumps::dump_task(ring, dump_r, trig_r, cli.dump_path, sd_dump_r)
+            dumps::dump_task(
+                ring,
+                dump_r,
+                trig_r,
+                cli.dump_path,
+                cli.downsample_power,
+                sd_dump_r
+            )
         ),
         (
             "exfil",

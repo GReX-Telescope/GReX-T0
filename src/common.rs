@@ -82,12 +82,6 @@ impl Default for Payload {
     }
 }
 
-/// Return the real time of a given packet count
-// pub fn payload_real_time(payload_count: u64) -> Epoch {
-//     let second_offset = (payload_count as f64 * PACKET_CADENCE).seconds();
-//     *start_time + second_offset
-// }
-
 impl Payload {
     /// Calculate the Stokes-I parameter for this payload
     pub fn stokes_i(&self) -> Stokes {

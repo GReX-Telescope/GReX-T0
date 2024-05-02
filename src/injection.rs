@@ -1,11 +1,12 @@
 //! Task for injecting a fake pulse into the timestream to test/validate downstream components
-use crate::common::{Payload, BLOCK_TIMEOUT, CHANNELS};
+use crate::common::{payload_time, Payload, BLOCK_TIMEOUT, CHANNELS, FIRST_PACKET};
 use byte_slice_cast::AsSliceOf;
 use memmap2::Mmap;
 use ndarray::{s, ArrayView, ArrayView2};
 use std::{
     fs::File,
     path::PathBuf,
+    sync::atomic::Ordering,
     time::{Duration, Instant},
 };
 use thingbuf::mpsc::{
@@ -72,7 +73,12 @@ pub fn pulse_injection_task(
                         last_injection = Instant::now();
                         currently_injecting = true;
                         i = 0;
-                        info!("Injecting pulse!");
+                        info!(
+                            raw_sample = payload.count,
+                            processed_sample = payload.count - FIRST_PACKET.load(Ordering::Acquire),
+                            payload_mjd = payload_time(payload.count).to_mjd_tai_days(),
+                            "Injecting pulse"
+                        );
                     }
                     if currently_injecting {
                         // Get the slice of fake pulse data
