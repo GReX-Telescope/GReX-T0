@@ -247,9 +247,9 @@ impl DumpRing {
 
             // Specnum is which spectrum heimdall found the pulse in.
             // So, the sample number of specnum 0 is the FIRST_PACKET that we processed and the sample number of specnum 1 is the downsample of samples FIRST_PACKET..=downsample_factor+FIRST_PACKET
-            // This is the *middle* sample integrated into that spectrum
-            let true_sample = tm.itime as u64 * downsample_factor as u64 / 2
-                + FIRST_PACKET.load(Ordering::Acquire);
+            // This is the *last* sample integrated into that spectrum
+            let true_sample =
+                tm.itime as u64 * downsample_factor as u64 + FIRST_PACKET.load(Ordering::Acquire);
 
             // Now find where in the block this sample lies (hopefully we didn't miss it, throwing an error if we did)
             // DUMP_SIZE is even, so we'll bias the sample one to the left
