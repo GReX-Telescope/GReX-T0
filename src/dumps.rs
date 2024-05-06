@@ -13,7 +13,7 @@ use std::{
 };
 use thingbuf::mpsc::{blocking::StaticReceiver, errors::RecvTimeoutError};
 use tokio::{net::UdpSocket, sync::broadcast};
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 // Just over 2 second window size (2^18)
 const DUMP_SIZE: u64 = 262144;
@@ -119,8 +119,8 @@ impl DumpRing {
         let newest = oldest + (self.capacity as u64) - 1;
 
         info!(
-            "Attempting to dump {} to {}. Ring buffer covers {} to {}",
-            start_sample, stop_sample, oldest, newest
+            "Attempting to dump {} to {}. Ring buffer covers {} to {} with the write ptr at {}",
+            start_sample, stop_sample, oldest, newest, self.write_ptr
         );
 
         // The true dump size could have been modified by the caller to fit partial bursts into the window
@@ -210,10 +210,13 @@ impl DumpRing {
             // start idx for the second chunk is the start of the chunk
             let stop_idx = stop_sample as usize - oldest as usize + a_len;
             let b_slice = a.slice(s![..=stop_idx, .., .., ..]);
-            voltages.put(
-                (a_slice.len()..(a_slice.len() + b_slice.len()), .., .., ..),
-                b_slice,
-            )?;
+            // Sanity check
+            if a_slice.len() + b_slice.len() != this_dump_size as usize {
+                error!(
+                    "The size of the two slices doesn't match the total size we expected to dump"
+                );
+            }
+            voltages.put((a_slice.len().., .., .., ..), b_slice)?;
         }
         // 3. The range is entirely in the second chunk
         // Else branch implies that oldest + a_len <= stop_sample && oldest + a_len <= start_sample
