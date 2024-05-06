@@ -209,7 +209,7 @@ impl DumpRing {
             voltages.put((..a_slice.len(), .., .., ..), a_slice)?;
             // start idx for the second chunk is the start of the chunk
             let stop_idx = stop_sample as usize - oldest as usize + a_len;
-            let b_slice = a.slice(s![..=stop_idx, .., .., ..]);
+            let b_slice = b.slice(s![..=stop_idx, .., .., ..]);
             // Sanity check
             if a_slice.len() + b_slice.len() != this_dump_size as usize {
                 error!(
