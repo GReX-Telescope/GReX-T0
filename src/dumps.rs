@@ -118,6 +118,11 @@ impl DumpRing {
         let oldest = self.oldest.unwrap();
         let newest = oldest + (self.capacity as u64) - 1;
 
+        info!(
+            "Attempting to dump {} to {}. Ring buffer covers {} to {}",
+            start_sample, stop_sample, oldest, newest
+        );
+
         // The true dump size could have been modified by the caller to fit partial bursts into the window
         let this_dump_size = stop_sample - start_sample + 1;
 
@@ -187,6 +192,7 @@ impl DumpRing {
         // There are three situations:
         // 1. The range is entirely in the first half
         if oldest as usize + a_len > stop_sample as usize {
+            info!("burst is all in a");
             // Trim the chunk and write
             let start_idx = (start_sample - oldest) as usize;
             let stop_idx = (stop_sample - oldest) as usize;
@@ -196,6 +202,7 @@ impl DumpRing {
         // 2. The range is between the two chunks
         // Else branch implies that oldest + a_len <= stop_sample
         else if oldest as usize + a_len > start_sample as usize {
+            info!("burst is between a and b");
             // stop idx for the first chunk is just the end of the chunk
             let start_idx = (start_sample - oldest) as usize;
             let a_slice = a.slice(s![start_idx.., .., .., ..]);
@@ -211,6 +218,7 @@ impl DumpRing {
         // 3. The range is entirely in the second chunk
         // Else branch implies that oldest + a_len <= stop_sample && oldest + a_len <= start_sample
         else {
+            info!("burst is all in b");
             let oldest_b = oldest as usize + a_len;
             let start_idx = start_sample as usize - oldest_b;
             let stop_idx = stop_sample as usize - oldest_b;
