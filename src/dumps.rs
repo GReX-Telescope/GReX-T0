@@ -118,6 +118,9 @@ impl DumpRing {
         let oldest = self.oldest.unwrap();
         let newest = oldest + (self.capacity as u64) - 1;
 
+        // The true dump size could have been modified by the caller to fit partial bursts into the window
+        let this_dump_size = stop_sample - start_sample + 1;
+
         // Check bounds
         if start_sample < oldest
             || start_sample > newest
@@ -133,7 +136,7 @@ impl DumpRing {
         let mut file = netcdf::create(path)?;
 
         // Add the file dimensions
-        file.add_dimension("time", DUMP_SIZE as usize)?;
+        file.add_dimension("time", this_dump_size as usize)?;
         file.add_dimension("pol", 2)?;
         file.add_dimension("freq", CHANNELS)?;
         file.add_dimension("reim", 2)?;
@@ -147,7 +150,7 @@ impl DumpRing {
         let mjd_end = payload_time(stop_sample).to_mjd_tai_days();
 
         // And create the range
-        let mjds = Array::linspace(mjd_start, mjd_end, DUMP_SIZE as usize);
+        let mjds = Array::linspace(mjd_start, mjd_end, this_dump_size as usize);
         mjd.put(.., mjds.view())?;
 
         let mut pol = file.add_string_variable("pol", &["pol"])?;
@@ -188,9 +191,10 @@ impl DumpRing {
             let start_idx = (start_sample - oldest) as usize;
             let stop_idx = (stop_sample - oldest) as usize;
             let slice = a.slice(s![start_idx..=stop_idx, .., .., ..]);
-            voltages.put((..DUMP_SIZE as usize, .., .., ..), slice)?;
+            voltages.put((..this_dump_size as usize, .., .., ..), slice)?;
         }
         // 2. The range is between the two chunks
+        // Else branch implies that oldest + a_len <= stop_sample
         else if oldest as usize + a_len > start_sample as usize {
             // stop idx for the first chunk is just the end of the chunk
             let start_idx = (start_sample - oldest) as usize;
@@ -205,12 +209,13 @@ impl DumpRing {
             )?;
         }
         // 3. The range is entirely in the second chunk
+        // Else branch implies that oldest + a_len <= stop_sample && oldest + a_len <= start_sample
         else {
             let oldest_b = oldest as usize + a_len;
             let start_idx = start_sample as usize - oldest_b;
             let stop_idx = stop_sample as usize - oldest_b;
             let slice = b.slice(s![start_idx..=stop_idx, .., .., ..]);
-            voltages.put((..DUMP_SIZE as usize, .., .., ..), slice)?;
+            voltages.put((..this_dump_size as usize, .., .., ..), slice)?;
         }
 
         // Make sure the file is completley written to the disk
