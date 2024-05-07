@@ -38,8 +38,8 @@ pub fn downsample_task(
         match to_dumps.try_send(*payload) {
             Err(thingbuf::mpsc::errors::TrySendError::Closed(_)) => bail!("Channel closed"),
             Err(thingbuf::mpsc::errors::TrySendError::Full(_)) => {
-                //warn!("Tried to push to a full dump channel");
-                //panic!();
+                warn!("Tried to push to a full dump channel");
+                panic!();
             }
             _ => (),
         }
