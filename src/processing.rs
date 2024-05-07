@@ -35,13 +35,8 @@ pub fn downsample_task(
         // Compute Stokes I
         let stokes = payload.stokes_i();
         // Send payload to dump (non-blocking)
-        match to_dumps.try_send(*payload) {
-            Err(thingbuf::mpsc::errors::TrySendError::Closed(_)) => bail!("Channel closed"),
-            Err(thingbuf::mpsc::errors::TrySendError::Full(_)) => {
-                // warn!("Tried to push to a full dump channel");
-                // panic!();
-            }
-            _ => (),
+        if let Err(thingbuf::mpsc::errors::TrySendError::Closed(_)) = to_dumps.try_send(*payload) {
+            bail!("Channel closed");
         }
         debug_assert_eq!(stokes.len(), CHANNELS);
         // Add to averaging bufs

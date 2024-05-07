@@ -68,8 +68,13 @@ impl DumpRing {
         if let Some(last) = self.last {
             // Check to see if the incoming payload is monotonic
             if pl.count != last + 1 {
-                error!(count = pl.count, last = last, "Not monotonic");
-                panic!();
+                error!(
+                    count = pl.count,
+                    last = last,
+                    "Not monotonic, clearing buffer and starting over"
+                );
+                self.reset();
+                return;
             } else {
                 self.last = Some(pl.count);
             }
