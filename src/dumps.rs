@@ -375,6 +375,12 @@ pub fn dump_task(
                             warn!("We received {skipped_triggers} triggers to dump while we were dumping, these were skipped");
                         }
 
+                        // We also need to clear out everything in the payload channel, because there will be a discontinuity
+                        // in payload counts as we were dumping
+                        for _ in 0..payload_reciever.len() {
+                            let _ = payload_reciever.recv();
+                        }
+
                         // Keep on loopin
                         continue;
                     }
