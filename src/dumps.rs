@@ -33,6 +33,8 @@ pub struct DumpRing {
     oldest: Option<u64>,
     // If the buffer is completly full
     full: bool,
+    /// Last pushed payload count
+    last: Option<u64>,
 }
 
 impl DumpRing {
@@ -46,6 +48,7 @@ impl DumpRing {
             write_ptr: 0,
             full: false,
             oldest: None,
+            last: None,
         }
     }
 
@@ -54,15 +57,10 @@ impl DumpRing {
         self.write_ptr = 0;
         self.full = false;
         self.oldest = None;
+        self.last = None;
     }
 
     pub fn push(&mut self, pl: &Payload) {
-        // Oldest is not none. Sanity check that incoming data is unit monotonic
-        if self.full && (self.oldest.unwrap() + self.capacity as u64 != pl.count) {
-            error!(incoming = pl.count, expected = self.oldest.unwrap() + self.capacity as u64, "Incoming payload into the dump ring wasn't monotonic. This shouldn't happen and breaks a lot of assumptions");
-            panic!("Crashing here to check what happened");
-        }
-
         // Copy the data into the slice pointed to by the write_ptr
         let data_view = pl.as_ndarray_data_view();
         self.buffer
@@ -74,8 +72,19 @@ impl DumpRing {
         // If there was no data update the timeslot of the oldest data and increment the write_ptr
         if self.oldest.is_none() {
             self.oldest = Some(pl.count);
+            self.last = Some(pl.count);
             // Nothing left to do
             return;
+        }
+
+        if let Some(last) = self.last {
+            // Check to see if the incoming payload is monotonic
+            if pl.count != last + 1 {
+                error!(count = pl.count, last = last, "Not monotonic");
+                panic!();
+            } else {
+                self.last = Some(pl.count);
+            }
         }
 
         // If we're full, we overwrite old data
