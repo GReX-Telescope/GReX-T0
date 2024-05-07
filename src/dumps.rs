@@ -73,7 +73,7 @@ impl DumpRing {
         }
 
         // Oldest is not none. Sanity check that incoming data is unit monotonic
-        if self.full && (self.oldest.unwrap() + 1 != pl.count) {
+        if self.full && (self.oldest.unwrap() + 1 != pl.count - self.capacity as u64) {
             error!(incoming = pl.count, expected = self.oldest.unwrap() + 1, "Incoming payload into the dump ring wasn't monotonic. This shouldn't happen and breaks a lot of assumptions");
             panic!("Crashing here to check what happened");
         }
