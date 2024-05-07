@@ -13,7 +13,7 @@ use std::{
 };
 use thingbuf::mpsc::{blocking::StaticReceiver, errors::RecvTimeoutError};
 use tokio::{net::UdpSocket, sync::broadcast};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 // Just over 2 second window size (2^18)
 const DUMP_SIZE: u64 = 262144;
@@ -212,7 +212,7 @@ impl DumpRing {
         // There are three situations:
         // 1. The range is entirely in the first half
         if oldest as usize + a_len > stop_sample as usize {
-            info!("burst is all in a");
+            debug!("burst is all in a");
             // Trim the chunk and write
             let start_idx = (start_sample - oldest) as usize;
             let stop_idx = (stop_sample - oldest) as usize;
@@ -222,7 +222,7 @@ impl DumpRing {
         // 2. The range is between the two chunks
         // Else branch implies that oldest + a_len <= stop_sample
         else if oldest as usize + a_len > start_sample as usize {
-            info!("burst is between a and b");
+            debug!("burst is between a and b");
             // stop idx for the first chunk is just the end of the chunk
             let start_idx = (start_sample - oldest) as usize;
             let a_slice = a.slice(s![start_idx.., .., .., ..]);
@@ -241,7 +241,7 @@ impl DumpRing {
         // 3. The range is entirely in the second chunk
         // Else branch implies that oldest + a_len <= stop_sample && oldest + a_len <= start_sample
         else {
-            info!("burst is all in b");
+            debug!("burst is all in b");
             let oldest_b = oldest as usize + a_len;
             let start_idx = start_sample as usize - oldest_b;
             let stop_idx = stop_sample as usize - oldest_b;

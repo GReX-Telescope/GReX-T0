@@ -41,7 +41,7 @@ async fn main() -> eyre::Result<()> {
         .with(EnvFilter::from_default_env())
         .init();
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
-    info!("Allocating RAM for the voltage ringbuffe!");
+    info!("Allocating RAM for the voltage ringbuffer!");
     let ring = DumpRing::new(cli.vbuf_power);
     // Setup the exit handler
     let (sd_s, sd_cap_r) = broadcast::channel(1);
