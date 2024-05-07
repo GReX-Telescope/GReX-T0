@@ -138,7 +138,7 @@ impl DumpRing {
         let oldest = self.oldest.unwrap();
         let newest = oldest + (self.capacity as u64) - 1;
 
-        info!(
+        debug!(
             "Attempting to dump {} to {}. Ring buffer covers {} to {} with the write ptr at {}",
             start_sample, stop_sample, oldest, newest, self.write_ptr
         );
