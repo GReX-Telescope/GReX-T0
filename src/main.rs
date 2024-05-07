@@ -23,10 +23,9 @@ use tracing::info;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 // Setup the static channels
-const FAST_PATH_CHANNEL_SIZE: usize = 1024;
-static CAPTURE_CHAN: StaticChannel<Payload, 32_768> = StaticChannel::new();
-static INJECT_CHAN: StaticChannel<Payload, FAST_PATH_CHANNEL_SIZE> = StaticChannel::new();
-static DUMP_CHAN: StaticChannel<Payload, FAST_PATH_CHANNEL_SIZE> = StaticChannel::new();
+static CAPTURE_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
+static INJECT_CHAN: StaticChannel<Payload, 1024> = StaticChannel::new();
+static DUMP_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
@@ -112,7 +111,7 @@ async fn main() -> eyre::Result<()> {
     let (dump_s, dump_r) = DUMP_CHAN.split();
     let (inject_s, inject_r) = INJECT_CHAN.split();
     // Fast path channels
-    let (ex_s, ex_r) = channel(FAST_PATH_CHANNEL_SIZE);
+    let (ex_s, ex_r) = channel(1024);
 
     // Less important channels, these don't have to be static (and we don't need thingbuf)
     let (trig_s, trig_r) = std::sync::mpsc::sync_channel(5);
