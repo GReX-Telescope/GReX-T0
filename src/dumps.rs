@@ -45,9 +45,7 @@ impl DumpRing {
         let mut buffer = Array::zeros((capacity, 2, CHANNELS, 2));
         // We're going to write a non-zero value to do something convincingly non-trivial
         // But this will be overwritten anyway
-        for x in buffer.iter_mut() {
-            *x = 0xDEu8 as i8
-        }
+        buffer.fill(0xDEu8 as i8);
         Self {
             buffer,
             capacity,
