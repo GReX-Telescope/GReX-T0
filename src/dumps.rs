@@ -41,7 +41,7 @@ impl DumpRing {
     pub fn new(size_power: u32) -> Self {
         let capacity = 2usize.pow(size_power);
         // Allocate all the memory for the array (heap)
-        let buffer = Array::zeros((capacity, 2, CHANNELS, 2));
+        let buffer = unsafe { Array::uninitialized((capacity, 2, CHANNELS, 2)) };
         Self {
             buffer,
             capacity,

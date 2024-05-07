@@ -11,6 +11,7 @@ use grex_t0::{
     fpga::Device,
     injection, monitoring, processing,
 };
+use ndarray::prelude::*;
 use rsntp::SntpClient;
 use std::time::Duration;
 use thingbuf::mpsc::blocking::{channel, StaticChannel};
@@ -40,6 +41,8 @@ async fn main() -> eyre::Result<()> {
         .with(fmt::layer())
         .with(EnvFilter::from_default_env())
         .init();
+    // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
+    let ring = DumpRing::new(cli.vbuf_power);
     // Setup the exit handler
     let (sd_s, sd_cap_r) = broadcast::channel(1);
     let sd_mon_r = sd_s.subscribe();
@@ -104,8 +107,6 @@ async fn main() -> eyre::Result<()> {
         info!("Calibrating bandpass");
         calibrate(&mut device)?;
     }
-    // Create the dump ring
-    let ring = DumpRing::new(cli.vbuf_power);
     // These may not need to be static
     let (cap_s, cap_r) = CAPTURE_CHAN.split();
     let (dump_s, dump_r) = DUMP_CHAN.split();
