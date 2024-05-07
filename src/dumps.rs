@@ -40,8 +40,14 @@ pub struct DumpRing {
 impl DumpRing {
     pub fn new(size_power: u32) -> Self {
         let capacity = 2usize.pow(size_power);
-        // Allocate all the memory for the array (heap)
-        let buffer = unsafe { Array::uninitialized((capacity, 2, CHANNELS, 2)) };
+        // Because (linux) uses overcommited memory, this just asks the OS for the pages, it doesn't actually back this by RAM
+        // This means we need to write actual values to every single slot to convince linux we're not dumb and we really really want like 100GB for our thread
+        let mut buffer = Array::zeros((capacity, 2, CHANNELS, 2));
+        // We're going to write a non-zero value to do something convincingly non-trivial
+        // But this will be overwritten anyway
+        for x in buffer.iter_mut() {
+            *x = 0xDEu8 as i8
+        }
         Self {
             buffer,
             capacity,

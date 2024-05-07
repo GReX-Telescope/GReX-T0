@@ -43,7 +43,6 @@ async fn main() -> eyre::Result<()> {
         .init();
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
     let ring = DumpRing::new(cli.vbuf_power);
-    std::thread::sleep(std::time::Duration::from_secs(30));
     // Setup the exit handler
     let (sd_s, sd_cap_r) = broadcast::channel(1);
     let sd_mon_r = sd_s.subscribe();
