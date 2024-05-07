@@ -6,7 +6,7 @@ use thingbuf::mpsc::{
     errors::RecvTimeoutError,
 };
 use tokio::sync::broadcast;
-use tracing::{info, warn};
+use tracing::info;
 
 #[allow(clippy::missing_panics_doc)]
 pub fn downsample_task(
