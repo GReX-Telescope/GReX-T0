@@ -148,6 +148,8 @@ impl Capture {
                     // And send
                     payload_sender.send(pl)?;
                 }
+                // Don't forget to send *this* payload!!
+                payload_sender.send(*payload)?;
                 // Increment our drops counter
                 self.drops += drops as usize;
                 // And finally update the next expected
