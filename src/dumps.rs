@@ -217,7 +217,7 @@ impl DumpRing {
         // There are three situations:
         // 1. The range is entirely in the first half
         if oldest as usize + a_len > stop_sample as usize {
-            debug!("burst is all in a");
+            info!("burst is all in a");
             // Trim the chunk and write
             let start_idx = (start_sample - oldest) as usize;
             let stop_idx = (stop_sample - oldest) as usize;
@@ -227,7 +227,7 @@ impl DumpRing {
         // 2. The range is between the two chunks
         // Else branch implies that oldest + a_len <= stop_sample
         else if oldest as usize + a_len > start_sample as usize {
-            debug!("burst is between a and b");
+            info!("burst is between a and b");
             // stop idx for the first chunk is just the end of the chunk
             let start_idx = (start_sample - oldest) as usize;
             let a_slice = a.slice(s![start_idx.., .., .., ..]);
@@ -246,7 +246,7 @@ impl DumpRing {
         // 3. The range is entirely in the second chunk
         // Else branch implies that oldest + a_len <= stop_sample && oldest + a_len <= start_sample
         else {
-            debug!("burst is all in b");
+            info!("burst is all in b");
             let oldest_b = oldest as usize + a_len;
             let start_idx = start_sample as usize - oldest_b;
             let stop_idx = stop_sample as usize - oldest_b;
@@ -396,9 +396,17 @@ pub fn dump_task(
                         }
 
                         // We also need to clear out everything in the payload channel, because there will be a discontinuity
-                        // in payload counts as we were dumping
-                        for _ in 0..payload_reciever.len() {
-                            let _ = payload_reciever.recv();
+                        // in payload counts as we were dumping. Instead of just doing the backlog, might as well do an entire channel's worth.
+                        // This will "lose" data, but is the conservative approach to making sure everything gets back to normal.
+                        for _ in 0..payload_reciever.capacity() {
+                            match payload_reciever.recv_timeout(BLOCK_TIMEOUT) {
+                                Ok(_) => {
+                                    // Do nothing
+                                }
+                                Err(RecvTimeoutError::Timeout) => continue,
+                                Err(RecvTimeoutError::Closed) => return Ok(()),
+                                Err(_) => unreachable!(),
+                            }
                         }
 
                         // Keep on loopin
@@ -418,7 +426,7 @@ pub fn dump_task(
                     ring.push(&pl);
                 }
                 Err(RecvTimeoutError::Timeout) => continue,
-                Err(RecvTimeoutError::Closed) => break,
+                Err(RecvTimeoutError::Closed) => return Ok(()),
                 Err(_) => unreachable!(),
             }
         }
