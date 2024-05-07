@@ -398,7 +398,7 @@ pub fn dump_task(
                         // We also need to clear out everything in the payload channel, because there will be a discontinuity
                         // in payload counts as we were dumping. Instead of just doing the backlog, might as well do an entire channel's worth.
                         // This will "lose" data, but is the conservative approach to making sure everything gets back to normal.
-                        for _ in 0..payload_reciever.capacity() {
+                        for _ in 0..(2 * payload_reciever.capacity()) {
                             match payload_reciever.recv_timeout(BLOCK_TIMEOUT) {
                                 Ok(_) => {
                                     // Do nothing
