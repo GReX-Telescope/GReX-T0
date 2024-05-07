@@ -257,9 +257,6 @@ impl DumpRing {
         // Make sure the file is completley written to the disk
         file.sync()?;
 
-        // Reset the write ptr back to zero and set the buffer as empty
-        self.reset();
-
         Ok(())
     }
 
@@ -382,6 +379,9 @@ pub fn dump_task(
                             Ok(_) => (),
                             Err(e) => warn!("Error in dumping buffer: {}", e),
                         }
+
+                        // Clear the buffer, even if we errored
+                        ring.reset();
 
                         // The dump may have taken a while, in which time the downstream task may have asked for *more* triggers
                         // This would imply that the signal_receiver could be full of stuff which would immediatly dump the next loop.
