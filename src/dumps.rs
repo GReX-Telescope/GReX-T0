@@ -65,22 +65,6 @@ impl DumpRing {
     }
 
     pub fn push(&mut self, pl: &Payload) {
-        // Copy the data into the slice pointed to by the write_ptr
-        let data_view = pl.as_ndarray_data_view();
-        self.buffer
-            .slice_mut(s![self.write_ptr, .., .., ..])
-            .assign(&data_view);
-
-        // Move the pointer
-        self.write_ptr = (self.write_ptr + 1) % self.capacity;
-        // If there was no data update the timeslot of the oldest data and increment the write_ptr
-        if self.oldest.is_none() {
-            self.oldest = Some(pl.count);
-            self.last = Some(pl.count);
-            // Nothing left to do
-            return;
-        }
-
         if let Some(last) = self.last {
             // Check to see if the incoming payload is monotonic
             if pl.count != last + 1 {
@@ -89,6 +73,23 @@ impl DumpRing {
             } else {
                 self.last = Some(pl.count);
             }
+        }
+
+        // Copy the data into the slice pointed to by the write_ptr
+        let data_view = pl.as_ndarray_data_view();
+        self.buffer
+            .slice_mut(s![self.write_ptr, .., .., ..])
+            .assign(&data_view);
+
+        // Move the pointer
+        self.write_ptr = (self.write_ptr + 1) % self.capacity;
+
+        // If there was no data update the timeslot of the oldest data and increment the write_ptr
+        if self.oldest.is_none() {
+            self.oldest = Some(pl.count);
+            self.last = Some(pl.count);
+            // Nothing left to do
+            return;
         }
 
         // If we're full, we overwrite old data
