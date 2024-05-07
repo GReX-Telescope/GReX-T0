@@ -11,7 +11,6 @@ use grex_t0::{
     fpga::Device,
     injection, monitoring, processing,
 };
-use ndarray::prelude::*;
 use rsntp::SntpClient;
 use std::time::Duration;
 use thingbuf::mpsc::blocking::{channel, StaticChannel};
@@ -25,7 +24,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 // Setup the static channels
 const FAST_PATH_CHANNEL_SIZE: usize = 1024;
-static CAPTURE_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
+static CAPTURE_CHAN: StaticChannel<Payload, 32_768> = StaticChannel::new();
 static INJECT_CHAN: StaticChannel<Payload, FAST_PATH_CHANNEL_SIZE> = StaticChannel::new();
 static DUMP_CHAN: StaticChannel<Payload, FAST_PATH_CHANNEL_SIZE> = StaticChannel::new();
 
@@ -42,6 +41,7 @@ async fn main() -> eyre::Result<()> {
         .with(EnvFilter::from_default_env())
         .init();
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
+    info!("Allocating RAM for the voltage ringbuffe!");
     let ring = DumpRing::new(cli.vbuf_power);
     // Setup the exit handler
     let (sd_s, sd_cap_r) = broadcast::channel(1);
