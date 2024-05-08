@@ -36,7 +36,7 @@ async fn main() -> eyre::Result<()> {
     // Get the CPU core range
     let mut cpus = cli.core_range;
     // Setup telemetry (logs, spans, traces, eventually metrics)
-    init_tracing_subscriber();
+    let _guard = init_tracing_subscriber().await;
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
     info!("Allocating RAM for the voltage ringbuffer!");
     let ring = DumpRing::new(cli.vbuf_power);
@@ -205,9 +205,6 @@ async fn main() -> eyre::Result<()> {
     for handle in handles {
         handle.join().unwrap()?;
     }
-
-    // Cleanup metrics handling
-    opentelemetry::global::shutdown_tracer_provider();
 
     Ok(())
 }

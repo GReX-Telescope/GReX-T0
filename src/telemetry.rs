@@ -1,7 +1,7 @@
 use opentelemetry::KeyValue;
 use opentelemetry_sdk::{
     runtime,
-    trace::{BatchConfig, RandomIdGenerator, Sampler, Tracer},
+    trace::{BatchConfig, RandomIdGenerator, Sampler},
     Resource,
 };
 use opentelemetry_semantic_conventions::{
@@ -23,9 +23,17 @@ fn resource() -> Resource {
     )
 }
 
-/// Construct Tracer for OpenTelemetryLayer
-fn init_tracer() -> Tracer {
-    opentelemetry_otlp::new_pipeline()
+pub struct OtelGuard {}
+
+impl Drop for OtelGuard {
+    fn drop(&mut self) {
+        opentelemetry::global::shutdown_tracer_provider();
+    }
+}
+
+/// Initialize tracing-subscriber
+pub async fn init_tracing_subscriber() -> OtelGuard {
+    let tracer = opentelemetry_otlp::new_pipeline()
         .tracing()
         .with_trace_config(
             opentelemetry_sdk::trace::Config::default()
@@ -39,16 +47,14 @@ fn init_tracer() -> Tracer {
         )
         .with_batch_config(BatchConfig::default())
         .with_exporter(opentelemetry_otlp::new_exporter().tonic())
-        //.install_batch(runtime::TokioCurrentThread)
-        .install_simple()
-        .expect("Could not create OpenTelemetry tracer")
-}
+        .install_batch(runtime::TokioCurrentThread)
+        .expect("Could not create OpenTelemetry tracer");
 
-/// Initialize tracing-subscriber
-pub fn init_tracing_subscriber() {
     tracing_subscriber::registry()
         .with(EnvFilter::from_default_env())
         .with(tracing_subscriber::fmt::layer())
-        .with(OpenTelemetryLayer::new(init_tracer()))
+        .with(OpenTelemetryLayer::new(tracer))
         .init();
+
+    OtelGuard {}
 }
