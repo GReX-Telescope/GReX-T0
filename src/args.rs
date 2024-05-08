@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use regex::Regex;
 use std::{net::SocketAddr, ops::RangeInclusive, path::PathBuf};
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
     /// Path to save voltage dumps

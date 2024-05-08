@@ -33,10 +33,13 @@ async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
     // Get the CLI options
     let cli = args::Cli::parse();
-    // Get the CPU core range
-    let mut cpus = cli.core_range;
     // Setup telemetry (logs, spans, traces, eventually metrics)
     let _guard = init_tracing_subscriber().await;
+    start_pipeline(cli).await
+}
+
+#[tracing::instrument(level = "debug")]
+async fn start_pipeline(cli: args::Cli) -> eyre::Result<()> {
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
     info!("Allocating RAM for the voltage ringbuffer!");
     let ring = DumpRing::new(cli.vbuf_power);
@@ -115,6 +118,8 @@ async fn main() -> eyre::Result<()> {
     let (trig_s, trig_r) = std::sync::mpsc::sync_channel(5);
     let (stat_s, stat_r) = std::sync::mpsc::sync_channel(100);
 
+    // Get the CPU core range
+    let mut cpus = cli.core_range;
     // Start the threads
     macro_rules! thread_spawn {
             ($(($thread_name:literal, $fcall:expr)), +) => {
