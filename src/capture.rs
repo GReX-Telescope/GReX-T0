@@ -79,7 +79,6 @@ impl Capture {
         })
     }
 
-    #[tracing::instrument(skip(self, buf))]
     pub fn capture(&mut self, buf: &mut [u8]) -> eyre::Result<()> {
         let n = self.sock.recv(buf)?;
         if n != buf.len() {
@@ -89,6 +88,7 @@ impl Capture {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn start(
         &mut self,
         payload_sender: StaticSender<Payload>,
