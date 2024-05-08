@@ -185,7 +185,6 @@ pub fn monitor_task(
     Ok(())
 }
 
-#[tracing::instrument]
 pub fn start_web_server(metrics_port: u16) -> eyre::Result<Server> {
     info!("Starting metrics webserver");
     // Create the server coroutine

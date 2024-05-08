@@ -25,7 +25,6 @@ fn heimdall_timestamp(time: &Epoch) -> String {
 }
 
 /// A consumer that just grabs stokes off the channel and drops them
-#[tracing::instrument]
 pub fn dummy_consumer(
     stokes_rcv: Receiver<Stokes>,
     mut shutdown: broadcast::Receiver<()>,
@@ -45,7 +44,6 @@ pub fn dummy_consumer(
     Ok(())
 }
 
-#[tracing::instrument]
 pub fn dada_consumer(
     key: i32,
     stokes_rcv: Receiver<Stokes>,
@@ -122,7 +120,6 @@ pub fn dada_consumer(
 }
 
 /// Basically the same as the dada consumer, except write to a filterbank instead with no chunking
-#[tracing::instrument]
 pub fn filterbank_consumer(
     stokes_rcv: Receiver<Stokes>,
     downsample_factor: usize,

@@ -168,7 +168,6 @@ pub struct Stats {
     pub shuffled: usize,
 }
 
-#[tracing::instrument]
 pub fn cap_task(
     port: u16,
     cap_send: StaticSender<Payload>,
