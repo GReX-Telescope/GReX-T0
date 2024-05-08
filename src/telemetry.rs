@@ -1,7 +1,8 @@
 use opentelemetry::KeyValue;
+use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use opentelemetry_sdk::{
     runtime,
-    trace::{BatchConfig, RandomIdGenerator},
+    trace::{BatchConfig, RandomIdGenerator, Sampler},
     Resource,
 };
 use opentelemetry_semantic_conventions::{
@@ -17,7 +18,7 @@ fn resource() -> Resource {
         [
             KeyValue::new(SERVICE_NAME, env!("CARGO_PKG_NAME")),
             KeyValue::new(SERVICE_VERSION, env!("CARGO_PKG_VERSION")),
-            KeyValue::new(DEPLOYMENT_ENVIRONMENT, "develop"),
+            KeyValue::new(DEPLOYMENT_ENVIRONMENT, "production"),
         ],
         SCHEMA_URL,
     )
@@ -25,14 +26,12 @@ fn resource() -> Resource {
 
 /// Initialize tracing-subscriber
 pub async fn init_tracing_subscriber() {
-    let tracer = opentelemetry_otlp::new_pipeline()
+    let traces = opentelemetry_otlp::new_pipeline()
         .tracing()
         .with_trace_config(
             opentelemetry_sdk::trace::Config::default()
                 // Customize sampling strategy
-                // .with_sampler(Sampler::ParentBased(Box::new(Sampler::TraceIdRatioBased(
-                //     1.0,
-                // ))))
+                .with_sampler(Sampler::AlwaysOn)
                 // If export trace to AWS X-Ray, you can use XrayIdGenerator
                 .with_id_generator(RandomIdGenerator::default())
                 .with_resource(resource()),
@@ -42,9 +41,20 @@ pub async fn init_tracing_subscriber() {
         .install_batch(runtime::TokioCurrentThread)
         .expect("Could not create OpenTelemetry tracer");
 
+    let logs = opentelemetry_otlp::new_pipeline()
+        .logging()
+        .with_exporter(opentelemetry_otlp::new_exporter().tonic())
+        .with_log_config(opentelemetry_sdk::logs::config().with_resource(resource()))
+        .install_batch(opentelemetry_sdk::runtime::TokioCurrentThread)
+        .expect("Could not create OpenTelemetry logger");
+
+    let trace_layer = OpenTelemetryLayer::new(traces);
+    let log_layer = OpenTelemetryTracingBridge::new(logs.provider());
+
     tracing_subscriber::registry()
         .with(EnvFilter::from_default_env())
         .with(tracing_subscriber::fmt::layer())
-        .with(OpenTelemetryLayer::new(tracer))
+        .with(trace_layer)
+        .with(log_layer)
         .init();
 }

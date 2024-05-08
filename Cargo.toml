@@ -54,9 +54,10 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 opentelemetry = "0.22"
 opentelemetry_sdk = { version = "0.22", features = ["rt-tokio-current-thread"] }
-opentelemetry-otlp = "0.15"
+opentelemetry-otlp = { version = "0.15", features = ["logs"] }
 tracing-opentelemetry = "0.23"
 opentelemetry-semantic-conventions = "0.14"
+opentelemetry-appender-tracing = "0.3"
 
 # Misc
 thingbuf = { version = "0.1", features = ["static"] }
