@@ -13,7 +13,7 @@ use grex_t0::{
     telemetry::init_tracing_subscriber,
 };
 use rsntp::SntpClient;
-use std::time::Duration;
+use std::{thread::JoinHandle, time::Duration};
 use thingbuf::mpsc::blocking::{channel, StaticChannel};
 use tokio::{
     signal::unix::{signal, SignalKind},
@@ -35,11 +35,17 @@ async fn main() -> eyre::Result<()> {
     let cli = args::Cli::parse();
     // Setup telemetry (logs, spans, traces, eventually metrics)
     let _guard = init_tracing_subscriber().await;
-    start_pipeline(cli).await
+    // Spawn all the tasks and return the handles
+    let handles = start_pipeline(cli).await?;
+    // Join them all when we kill the task
+    for handle in handles {
+        handle.join().unwrap()?;
+    }
+    Ok(())
 }
 
 #[tracing::instrument(level = "debug")]
-async fn start_pipeline(cli: args::Cli) -> eyre::Result<()> {
+async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre::Result<()>>>> {
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
     info!("Allocating RAM for the voltage ringbuffer!");
     let ring = DumpRing::new(cli.vbuf_power);
@@ -206,10 +212,5 @@ async fn start_pipeline(cli: args::Cli) -> eyre::Result<()> {
         tokio::spawn(dumps::trigger_task(trig_s, cli.trig_port, sd_trig_r))
     )?;
 
-    // Join them all when we kill the task
-    for handle in handles {
-        handle.join().unwrap()?;
-    }
-
-    Ok(())
+    Ok(handles)
 }
