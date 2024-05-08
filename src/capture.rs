@@ -88,7 +88,6 @@ impl Capture {
         }
     }
 
-    #[tracing::instrument(skip_all)]
     pub fn start(
         &mut self,
         payload_sender: StaticSender<Payload>,

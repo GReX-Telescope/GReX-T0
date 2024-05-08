@@ -26,7 +26,7 @@ static CAPTURE_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
 static INJECT_CHAN: StaticChannel<Payload, 1024> = StaticChannel::new();
 static DUMP_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
 
-#[tracing::instrument(level = "info")]
+#[tracing::instrument(level = "debug")]
 pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre::Result<()>>>> {
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
     info!("Allocating RAM for the voltage ringbuffer!");
