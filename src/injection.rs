@@ -23,6 +23,7 @@ fn read_pulse(pulse_mmap: &Mmap) -> eyre::Result<ArrayView2<i8>> {
     Ok(block)
 }
 
+#[tracing::instrument]
 pub fn pulse_injection_task(
     input: StaticReceiver<Payload>,
     output: StaticSender<Payload>,

@@ -326,6 +326,7 @@ pub struct TriggerMessage {
     pub itime: u32,
 }
 
+#[tracing::instrument]
 pub async fn trigger_task(
     sender: SyncSender<Vec<u8>>,
     port: u16,
@@ -353,6 +354,7 @@ pub async fn trigger_task(
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn dump_task(
     mut ring: DumpRing,
     payload_reciever: StaticReceiver<Payload>,

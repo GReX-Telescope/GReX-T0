@@ -28,6 +28,7 @@ static INJECT_CHAN: StaticChannel<Payload, 1024> = StaticChannel::new();
 static DUMP_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
 
 #[tokio::main(flavor = "current_thread")]
+#[tracing::instrument]
 async fn main() -> eyre::Result<()> {
     // Setup the error handler
     color_eyre::install()?;
