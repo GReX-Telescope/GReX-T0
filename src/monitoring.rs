@@ -10,6 +10,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::sync::OnceLock;
 use tokio::sync::broadcast;
 use tracing::{info, warn};
+use tracing_actix_web::TracingLogger;
 
 const MONITOR_ACCUMULATIONS: u32 = 1048576; // Around 8 second at 8.192us
 
@@ -187,10 +188,15 @@ pub fn monitor_task(
 pub fn start_web_server(metrics_port: u16) -> eyre::Result<Server> {
     info!("Starting metrics webserver");
     // Create the server coroutine
-    let server = HttpServer::new(move || App::new().service(metrics).service(start_time))
-        .bind(("0.0.0.0", metrics_port))?
-        .workers(1)
-        .run();
+    let server = HttpServer::new(move || {
+        App::new()
+            .wrap(TracingLogger::default()) // Tracing middleware
+            .service(metrics)
+            .service(start_time)
+    })
+    .bind(("0.0.0.0", metrics_port))?
+    .workers(1)
+    .run();
     // And return the coroutine for the caller to spawn
     Ok(server)
 }
