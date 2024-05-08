@@ -164,21 +164,21 @@ pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre:
             "exfil",
             match cli.exfil {
                 Some(e) => match e {
-                    args::Exfil::Psrdada { key, samples } => exfil::dada_consumer(
+                    args::Exfil::Psrdada { key, samples } => exfil::dada::consumer(
                         key,
                         ex_r,
                         2usize.pow(cli.downsample_power),
                         samples,
                         sd_exfil_r
                     ),
-                    args::Exfil::Filterbank => exfil::filterbank_consumer(
+                    args::Exfil::Filterbank => exfil::filterbank::consumer(
                         ex_r,
                         2usize.pow(cli.downsample_power),
                         &cli.filterbank_path,
                         sd_exfil_r
                     ),
                 },
-                None => exfil::dummy_consumer(ex_r, sd_exfil_r),
+                None => exfil::dummy::consumer(ex_r, sd_exfil_r),
             }
         ),
         (

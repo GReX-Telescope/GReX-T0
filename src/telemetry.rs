@@ -1,7 +1,7 @@
 use opentelemetry::KeyValue;
 use opentelemetry_sdk::{
     runtime,
-    trace::{BatchConfig, RandomIdGenerator, Sampler},
+    trace::{BatchConfig, RandomIdGenerator},
     Resource,
 };
 use opentelemetry_semantic_conventions::{
@@ -43,6 +43,8 @@ pub async fn init_tracing_subscriber() -> OtelGuard {
                 // .with_sampler(Sampler::ParentBased(Box::new(Sampler::TraceIdRatioBased(
                 //     1.0,
                 // ))))
+                // If export trace to AWS X-Ray, you can use XrayIdGenerator
+                .with_id_generator(RandomIdGenerator::default())
                 .with_resource(resource()),
         )
         .with_batch_config(BatchConfig::default())
