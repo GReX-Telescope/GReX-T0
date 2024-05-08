@@ -132,6 +132,7 @@ impl DumpRing {
     }
 
     /// Write a subset of the ring to a netcdf file, erroring if OOB. Start and stop are inclusive.
+    #[tracing::instrument]
     fn dump(&mut self, start_sample: u64, stop_sample: u64, path: &Path) -> eyre::Result<()> {
         // Fill times using the payload count of the oldest sample in the ring buffer
         if self.oldest.is_none() {
@@ -261,6 +262,7 @@ impl DumpRing {
     }
 
     /// Pack a subset of the ring into an array of [time, (pol_a, pol_b), channel, (re, im)] and write to a file specified by the contents of the trigger message
+    #[tracing::instrument]
     pub fn trigger_dump(
         &mut self,
         path: &Path,

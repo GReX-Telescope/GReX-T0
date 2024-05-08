@@ -1161,6 +1161,7 @@ dependencies = [
  "num-complex",
  "opentelemetry",
  "opentelemetry-otlp",
+ "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
  "paste",
  "prometheus",

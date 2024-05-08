@@ -11,6 +11,9 @@ use grex_t0::{
     fpga::Device,
     injection, monitoring, processing,
 };
+use opentelemetry::KeyValue;
+use opentelemetry_sdk::{trace as sdktrace, Resource};
+use opentelemetry_semantic_conventions::resource::SERVICE_NAME;
 use rsntp::SntpClient;
 use std::time::Duration;
 use thingbuf::mpsc::blocking::{channel, StaticChannel};
@@ -20,7 +23,7 @@ use tokio::{
     try_join,
 };
 use tracing::info;
-use tracing_subscriber::{fmt, layer::SubscriberExt, prelude::*, EnvFilter};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 // Setup the static channels
 static CAPTURE_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
@@ -39,15 +42,19 @@ async fn main() -> eyre::Result<()> {
     let tracer = opentelemetry_otlp::new_pipeline()
         .tracing()
         .with_exporter(opentelemetry_otlp::new_exporter().tonic()) // gRPC exporter to localhost collector
+        .with_trace_config(
+            sdktrace::config()
+                .with_resource(Resource::new(vec![KeyValue::new(SERVICE_NAME, "grex-t0")])),
+        )
         .install_batch(opentelemetry_sdk::runtime::TokioCurrentThread)?;
     // Create a tracing layer with the configured tracer
     let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
     // Use the tracing subscriber `Registry`, or any other subscriber
     // that impls `LookupSpan`
     tracing_subscriber::registry()
+        .with(EnvFilter::from_default_env())
         .with(fmt::layer())
         .with(telemetry)
-        .with(EnvFilter::from_default_env())
         .init();
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
     info!("Allocating RAM for the voltage ringbuffer!");
