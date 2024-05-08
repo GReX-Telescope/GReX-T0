@@ -30,6 +30,9 @@ static CAPTURE_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
 static INJECT_CHAN: StaticChannel<Payload, 1024> = StaticChannel::new();
 static DUMP_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
 
+// OTEL Service Name
+const OTEL_SERVICE_NAME: &str = "grex-t0";
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
     // Setup the error handler
@@ -38,22 +41,22 @@ async fn main() -> eyre::Result<()> {
     let cli = args::Cli::parse();
     // Get the CPU core range
     let mut cpus = cli.core_range;
-    // Create a new OpenTelemetry exporter
-    let tracer = opentelemetry_otlp::new_pipeline()
-        .tracing()
-        .with_exporter(opentelemetry_otlp::new_exporter().tonic()) // gRPC exporter to localhost collector
-        .with_trace_config(
-            sdktrace::config()
-                .with_resource(Resource::new(vec![KeyValue::new(SERVICE_NAME, "grex-t0")])),
-        )
-        .install_batch(opentelemetry_sdk::runtime::TokioCurrentThread)?;
-    // Create a tracing layer with the configured tracer
+    // Create a new OpenTelemetry trace exporter
+    let tracer =
+        opentelemetry_otlp::new_pipeline()
+            .tracing()
+            .with_exporter(opentelemetry_otlp::new_exporter().tonic())
+            .with_trace_config(sdktrace::config().with_resource(Resource::new(vec![
+                KeyValue::new(SERVICE_NAME, OTEL_SERVICE_NAME),
+            ])))
+            .install_batch(opentelemetry_sdk::runtime::TokioCurrentThread)?;
+    // Create tracing middleware for the OTEL tracer
     let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
     // Use the tracing subscriber `Registry`, or any other subscriber
     // that impls `LookupSpan`
     tracing_subscriber::registry()
-        .with(EnvFilter::from_default_env())
-        .with(fmt::layer())
+        //.with(EnvFilter::from_default_env())
+        //.with(fmt::layer())
         .with(telemetry)
         .init();
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
