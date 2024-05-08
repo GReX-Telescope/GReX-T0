@@ -11,9 +11,6 @@ use grex_t0::{
     fpga::Device,
     injection, monitoring, processing,
 };
-use opentelemetry::trace::TracerProvider as _;
-use opentelemetry_sdk::trace::TracerProvider;
-use opentelemetry_stdout as stdout;
 use rsntp::SntpClient;
 use std::time::Duration;
 use thingbuf::mpsc::blocking::{channel, StaticChannel};
@@ -38,11 +35,11 @@ async fn main() -> eyre::Result<()> {
     let cli = args::Cli::parse();
     // Get the CPU core range
     let mut cpus = cli.core_range;
-    // Create a new OpenTelemetry trace pipeline that prints to stdout
-    let provider = TracerProvider::builder()
-        .with_simple_exporter(stdout::SpanExporter::default())
-        .build();
-    let tracer = provider.tracer("grex_t0");
+    // Create a new OpenTelemetry exporter
+    let tracer = opentelemetry_otlp::new_pipeline()
+        .tracing()
+        .with_exporter(opentelemetry_otlp::new_exporter().tonic()) // gRPC exporter to localhost collector
+        .install_batch(opentelemetry_sdk::runtime::TokioCurrentThread)?;
     // Create a tracing layer with the configured tracer
     let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
     // Use the tracing subscriber `Registry`, or any other subscriber

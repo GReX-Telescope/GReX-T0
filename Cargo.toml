@@ -51,10 +51,10 @@ actix-web = "4"
 prometheus = "0.13"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-opentelemetry = "0.21"
-opentelemetry_sdk = "0.21"
-opentelemetry-stdout = { version = "0.2.0", features = ["trace"] }
-tracing-opentelemetry = "0.22"
+opentelemetry = "0.22"
+opentelemetry_sdk = { version = "0.22", features = ["rt-tokio-current-thread"] }
+opentelemetry-otlp = "0.15"
+tracing-opentelemetry = "0.23"
 
 # Misc
 thingbuf = { version = "0.1", features = ["static"] }
