@@ -12,5 +12,6 @@ pub mod exfil;
 pub mod fpga;
 pub mod injection;
 pub mod monitoring;
+pub mod pipeline;
 pub mod processing;
 pub mod telemetry;
