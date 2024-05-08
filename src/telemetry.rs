@@ -8,6 +8,7 @@ use opentelemetry_semantic_conventions::{
     resource::{DEPLOYMENT_ENVIRONMENT, SERVICE_NAME, SERVICE_VERSION},
     SCHEMA_URL,
 };
+use tracing::info;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -27,6 +28,7 @@ pub struct OtelGuard {}
 
 impl Drop for OtelGuard {
     fn drop(&mut self) {
+        info!("Cleaning up OTEL");
         opentelemetry::global::shutdown_tracer_provider();
     }
 }
