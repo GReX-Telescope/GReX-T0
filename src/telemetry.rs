@@ -39,7 +39,8 @@ fn init_tracer() -> Tracer {
         )
         .with_batch_config(BatchConfig::default())
         .with_exporter(opentelemetry_otlp::new_exporter().tonic())
-        .install_batch(runtime::TokioCurrentThread)
+        //.install_batch(runtime::TokioCurrentThread)
+        .install_simple()
         .expect("Could not create OpenTelemetry tracer")
 }
 
