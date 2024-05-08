@@ -44,7 +44,7 @@ async fn main() -> eyre::Result<()> {
     Ok(())
 }
 
-#[tracing::instrument(level = "debug")]
+#[tracing::instrument(level = "info")]
 async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre::Result<()>>>> {
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
     info!("Allocating RAM for the voltage ringbuffer!");
