@@ -55,7 +55,7 @@ async fn main() -> eyre::Result<()> {
     // Use the tracing subscriber `Registry`, or any other subscriber
     // that impls `LookupSpan`
     tracing_subscriber::registry()
-        //.with(EnvFilter::from_default_env())
+        .with(EnvFilter::from_default_env())
         .with(fmt::layer())
         .with(telemetry)
         .init();
