@@ -56,7 +56,7 @@ async fn main() -> eyre::Result<()> {
     // that impls `LookupSpan`
     tracing_subscriber::registry()
         //.with(EnvFilter::from_default_env())
-        //.with(fmt::layer())
+        .with(fmt::layer())
         .with(telemetry)
         .init();
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
