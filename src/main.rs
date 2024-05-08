@@ -10,10 +10,8 @@ use grex_t0::{
     exfil,
     fpga::Device,
     injection, monitoring, processing,
+    telemetry::init_tracing_subscriber,
 };
-use opentelemetry::KeyValue;
-use opentelemetry_sdk::{trace as sdktrace, Resource};
-use opentelemetry_semantic_conventions::resource::SERVICE_NAME;
 use rsntp::SntpClient;
 use std::time::Duration;
 use thingbuf::mpsc::blocking::{channel, StaticChannel};
@@ -23,15 +21,11 @@ use tokio::{
     try_join,
 };
 use tracing::info;
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 // Setup the static channels
 static CAPTURE_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
 static INJECT_CHAN: StaticChannel<Payload, 1024> = StaticChannel::new();
 static DUMP_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
-
-// OTEL Service Name
-const OTEL_SERVICE_NAME: &str = "grex-t0";
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
@@ -41,24 +35,8 @@ async fn main() -> eyre::Result<()> {
     let cli = args::Cli::parse();
     // Get the CPU core range
     let mut cpus = cli.core_range;
-    // Create a new OpenTelemetry trace exporter
-    let tracer =
-        opentelemetry_otlp::new_pipeline()
-            .tracing()
-            .with_exporter(opentelemetry_otlp::new_exporter().tonic())
-            .with_trace_config(sdktrace::config().with_resource(Resource::new(vec![
-                KeyValue::new(SERVICE_NAME, OTEL_SERVICE_NAME),
-            ])))
-            .install_batch(opentelemetry_sdk::runtime::TokioCurrentThread)?;
-    // Create tracing middleware for the OTEL tracer
-    let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-    // Use the tracing subscriber `Registry`, or any other subscriber
-    // that impls `LookupSpan`
-    tracing_subscriber::registry()
-        .with(EnvFilter::from_default_env())
-        .with(fmt::layer())
-        .with(telemetry)
-        .init();
+    // Setup telemetry (logs, spans, traces, eventually metrics)
+    init_tracing_subscriber();
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
     info!("Allocating RAM for the voltage ringbuffer!");
     let ring = DumpRing::new(cli.vbuf_power);
@@ -227,6 +205,9 @@ async fn main() -> eyre::Result<()> {
     for handle in handles {
         handle.join().unwrap()?;
     }
+
+    // Cleanup metrics handling
+    opentelemetry::global::shutdown_tracer_provider();
 
     Ok(())
 }
