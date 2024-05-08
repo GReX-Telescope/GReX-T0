@@ -13,7 +13,7 @@ use std::{
 };
 use thingbuf::mpsc::{blocking::StaticReceiver, errors::RecvTimeoutError};
 use tokio::{net::UdpSocket, sync::broadcast};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 // Just over 2 second window size (2^18)
 const DUMP_SIZE: u64 = 262144;
@@ -132,7 +132,7 @@ impl DumpRing {
     }
 
     /// Write a subset of the ring to a netcdf file, erroring if OOB. Start and stop are inclusive.
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug")]
     fn dump(&mut self, start_sample: u64, stop_sample: u64, path: &Path) -> eyre::Result<()> {
         // Fill times using the payload count of the oldest sample in the ring buffer
         if self.oldest.is_none() {
@@ -144,10 +144,7 @@ impl DumpRing {
         let oldest = self.oldest.unwrap();
         let newest = oldest + (self.capacity as u64) - 1;
 
-        debug!(
-            "Attempting to dump {} to {}. Ring buffer covers {} to {} with the write ptr at {}",
-            start_sample, stop_sample, oldest, newest, self.write_ptr
-        );
+        debug!("Ring buffer covers {} to {}", oldest, newest);
 
         // The true dump size could have been modified by the caller to fit partial bursts into the window
         let this_dump_size = stop_sample - start_sample + 1;
@@ -218,7 +215,7 @@ impl DumpRing {
         // There are three situations:
         // 1. The range is entirely in the first half
         if oldest as usize + a_len > stop_sample as usize {
-            info!("burst is all in a");
+            trace!("Dump is all in a chunk");
             // Trim the chunk and write
             let start_idx = (start_sample - oldest) as usize;
             let stop_idx = (stop_sample - oldest) as usize;
@@ -228,7 +225,7 @@ impl DumpRing {
         // 2. The range is between the two chunks
         // Else branch implies that oldest + a_len <= stop_sample
         else if oldest as usize + a_len > start_sample as usize {
-            info!("burst is between a and b");
+            trace!("Dump is between a and b chunk");
             // stop idx for the first chunk is just the end of the chunk
             let start_idx = (start_sample - oldest) as usize;
             let a_slice = a.slice(s![start_idx.., .., .., ..]);
@@ -247,7 +244,7 @@ impl DumpRing {
         // 3. The range is entirely in the second chunk
         // Else branch implies that oldest + a_len <= stop_sample && oldest + a_len <= start_sample
         else {
-            info!("burst is all in b");
+            trace!("Dump is all in b chunk");
             let oldest_b = oldest as usize + a_len;
             let start_idx = start_sample as usize - oldest_b;
             let stop_idx = stop_sample as usize - oldest_b;
@@ -262,7 +259,7 @@ impl DumpRing {
     }
 
     /// Pack a subset of the ring into an array of [time, (pol_a, pol_b), channel, (re, im)] and write to a file specified by the contents of the trigger message
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug")]
     pub fn trigger_dump(
         &mut self,
         path: &Path,
