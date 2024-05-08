@@ -11,6 +11,9 @@ use grex_t0::{
     fpga::Device,
     injection, monitoring, processing,
 };
+use opentelemetry::trace::TracerProvider as _;
+use opentelemetry_sdk::trace::TracerProvider;
+use opentelemetry_stdout as stdout;
 use rsntp::SntpClient;
 use std::time::Duration;
 use thingbuf::mpsc::blocking::{channel, StaticChannel};
@@ -20,7 +23,7 @@ use tokio::{
     try_join,
 };
 use tracing::info;
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{fmt, layer::SubscriberExt, prelude::*, EnvFilter};
 
 // Setup the static channels
 static CAPTURE_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
@@ -29,14 +32,24 @@ static DUMP_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
+    // Setup the error handler
     color_eyre::install()?;
     // Get the CLI options
     let cli = args::Cli::parse();
     // Get the CPU core range
     let mut cpus = cli.core_range;
-    // Logger init
+    // Create a new OpenTelemetry trace pipeline that prints to stdout
+    let provider = TracerProvider::builder()
+        .with_simple_exporter(stdout::SpanExporter::default())
+        .build();
+    let tracer = provider.tracer("grex_t0");
+    // Create a tracing layer with the configured tracer
+    let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+    // Use the tracing subscriber `Registry`, or any other subscriber
+    // that impls `LookupSpan`
     tracing_subscriber::registry()
         .with(fmt::layer())
+        .with(telemetry)
         .with(EnvFilter::from_default_env())
         .init();
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)

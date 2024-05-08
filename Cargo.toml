@@ -4,37 +4,62 @@ version = "0.5.0"
 edition = "2021"
 
 [dependencies]
+# Runtime
+tokio = { version = "1", features = ["full"] }
+core_affinity = "0.8"
+
+# CLI Tools
+clap = { version = "4", features = ["derive"] }
+regex = "1"
+
+# FPGA And Packet Capture
 casperfpga = "0.2"
 casperfpga_derive = "0.2"
-clap = { version = "4", features = ["derive"] }
 fixed = "1"
-actix-web = "4"
-prometheus = "0.13"
-ndarray = "0.15"
-num-complex = "0.4"
-regex = "1"
-rsntp = "4"
 socket2 = "0.5"
-tokio = { version = "1", features = ["full"] }
-thiserror = "1"
-core_affinity = "0.8"
-psrdada = "0.4"
-byte-slice-cast = "1"
-thingbuf = { version = "0.1", features = ["static"] }
-arrayvec = "0.7"
-sigproc_filterbank = "0.4"
-hifitime = "3"
-memmap2 = "0.9"
-eyre = "0.6"
-color-eyre = "0.6"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Math
 whittaker_smoother = "0.1"
 median = "0.3"
-netcdf = "0.9"
+num-complex = "0.4"
+ndarray = "0.15"
+
+# Time
+hifitime = "3"
+rsntp = "4"
+
+# Macros
 paste = "1"
-serde_json = "1"
 serde = { version = "1", features = ["derive"] }
+
+# Triggering
+serde_json = "1"
+
+# Exfil and Dumps
+sigproc_filterbank = "0.4"
+psrdada = "0.4"
+byte-slice-cast = "1"
+netcdf = "0.9"
+
+# Error Handling
+eyre = "0.6"
+color-eyre = "0.6"
+thiserror = "1"
+
+# Logging Support
+actix-web = "4"
+prometheus = "0.13"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+opentelemetry = "0.21"
+opentelemetry_sdk = "0.21"
+opentelemetry-stdout = { version = "0.2.0", features = ["trace"] }
+tracing-opentelemetry = "0.22"
+
+# Misc
+thingbuf = { version = "0.1", features = ["static"] }
+arrayvec = "0.7"
+memmap2 = "0.9"
 
 [patch.crates-io]
 # Once a new release of hdf5 is pushed, and netcdf follows, this can be removed
