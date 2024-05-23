@@ -1,6 +1,6 @@
 //! Dumping voltage data
 
-use crate::common::{payload_time, Payload, BLOCK_TIMEOUT, CHANNELS, FIRST_PACKET};
+use crate::common::{payload_time, Payload, BLOCK_TIMEOUT, CHANNELS, FIRST_PACKET, PACKET_CADENCE};
 use crate::exfil::{BANDWIDTH, HIGHBAND_MID_FREQ};
 use eyre::bail;
 use ndarray::prelude::*;
@@ -42,6 +42,10 @@ impl DumpRing {
         // Because (linux) uses overcommited memory, this just asks the OS for the pages, it doesn't actually back this by RAM
         // This means we need to write actual values to every single slot to convince linux we're not dumb and we really really want like 100GB for our thread
         let mut buffer = Array::zeros((capacity, 2, CHANNELS, 2));
+        info!(
+            "Creating voltage ringbuffer with a total capacity of {} seconds",
+            capacity as f64 * PACKET_CADENCE
+        );
         // We're going to write a non-zero value to do something convincingly non-trivial
         // But this will be overwritten anyway
         buffer.fill(0xDEu8 as i8);
