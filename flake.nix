@@ -32,7 +32,7 @@
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {inherit system;};
       inherit (pkgs) lib;
-      craneLib = crane.lib.${system};
+      craneLib = crane.mkLib nixpkgs.legacyPackages.${system};
 
       # T0 depends on an fpg file to build the SNAP interface,
       # so that must be deterministically included as well
