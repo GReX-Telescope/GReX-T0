@@ -30,7 +30,7 @@ static DUMP_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
 pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre::Result<()>>>> {
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
     info!("Allocating RAM for the voltage ringbuffer!");
-    let ring = DumpRing::new(cli.vbuf_power);
+    let ring = DumpRing::new(cli.vbuf_capacity);
     // Setup the exit handler
     let (sd_s, sd_cap_r) = broadcast::channel(1);
     let sd_mon_r = sd_s.subscribe();

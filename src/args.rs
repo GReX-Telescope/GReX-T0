@@ -33,9 +33,9 @@ pub struct Cli {
     #[clap(value_parser = clap::value_parser!(u32).range(1..=9))]
     #[arg(long, short, default_value_t = 2)]
     pub downsample_power: u32,
-    /// Voltage buffer size as a power of 2
-    #[arg(long, short, default_value_t = 15)]
-    pub vbuf_power: u32,
+    /// Voltage buffer capacity, 30s default
+    #[arg(long, short, default_value_t = 3662109)]
+    pub vbuf_capacity: usize,
     /// Socket address of the SNAP Board
     #[arg(long, default_value = "192.168.0.3:69")]
     pub fpga_addr: SocketAddr,
