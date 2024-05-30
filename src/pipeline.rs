@@ -23,9 +23,9 @@ use tokio::{
 use tracing::info;
 
 // Setup the static channels
-static CAPTURE_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
-static INJECT_CHAN: StaticChannel<Payload, 1024> = StaticChannel::new();
-static DUMP_CHAN: StaticChannel<Payload, 16_384> = StaticChannel::new();
+static CAPTURE_CHAN: StaticChannel<Payload, 32_768> = StaticChannel::new();
+static INJECT_CHAN: StaticChannel<Payload, 32_768> = StaticChannel::new();
+static DUMP_CHAN: StaticChannel<Payload, 32_768> = StaticChannel::new();
 
 #[tracing::instrument(level = "debug")]
 pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre::Result<()>>>> {
