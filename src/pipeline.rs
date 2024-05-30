@@ -6,7 +6,8 @@ use crate::{
     dumps::{self, DumpRing},
     exfil,
     fpga::Device,
-    injection, monitoring, processing,
+    injection::{self, Injections},
+    monitoring, processing,
 };
 pub use clap::Parser;
 use core_affinity::CoreId;
@@ -31,6 +32,8 @@ pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre:
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
     info!("Allocating RAM for the voltage ringbuffer!");
     let ring = DumpRing::new(cli.vbuf_capacity);
+    // Preload all the pulse injection data
+    let injections = Injections::new(cli.pulse_path);
     // Setup the exit handler
     let (sd_s, sd_cap_r) = broadcast::channel(1);
     let sd_mon_r = sd_s.subscribe();
@@ -122,32 +125,58 @@ pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre:
                         })
                         .unwrap()}),+]
             };
+    }
+
+    let mut handles = vec![];
+
+    // We spawn and connect threads a little differently depending on if we're doing pulse injection or not
+    match injections {
+        Ok(injections) => {
+            let mut these_handles = thread_spawn!(
+                (
+                    "injection",
+                    injection::pulse_injection_task(
+                        cap_r,
+                        inject_s,
+                        Duration::from_secs(cli.injection_cadence),
+                        injections,
+                        sd_inject_r
+                    )
+                ),
+                (
+                    "downsample",
+                    processing::downsample_task(
+                        inject_r,
+                        ex_s,
+                        dump_s,
+                        cli.downsample_power,
+                        sd_downsamp_r
+                    )
+                )
+            );
+            handles.append(&mut these_handles);
         }
-    // Spawn all the threads
-    let handles = thread_spawn!(
+        Err(_) => {
+            info!("Skipping pulse injection, folder missing or empty or contains invalid data");
+            let mut these_handles = thread_spawn!((
+                "downsample",
+                processing::downsample_task(
+                    cap_r,
+                    ex_s,
+                    dump_s,
+                    cli.downsample_power,
+                    sd_downsamp_r
+                )
+            ));
+            handles.append(&mut these_handles);
+        }
+    }
+
+    // Spawn the rest of the threads
+    let mut these_handles = thread_spawn!(
         (
             "collect",
             monitoring::monitor_task(device, stat_r, sd_mon_r)
-        ),
-        (
-            "injection",
-            injection::pulse_injection_task(
-                cap_r,
-                inject_s,
-                Duration::from_secs(cli.injection_cadence),
-                cli.pulse_path,
-                sd_inject_r
-            )
-        ),
-        (
-            "downsample",
-            processing::downsample_task(
-                inject_r,
-                ex_s,
-                dump_s,
-                cli.downsample_power,
-                sd_downsamp_r
-            )
         ),
         (
             "dump",
@@ -186,6 +215,8 @@ pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre:
             capture::cap_task(cli.cap_port, cap_s, stat_s, sd_cap_r)
         )
     );
+
+    handles.append(&mut these_handles);
 
     let _ = try_join!(
         // Start the webserver
