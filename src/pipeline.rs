@@ -20,7 +20,7 @@ use tokio::{
     sync::broadcast,
     try_join,
 };
-use tracing::info;
+use tracing::{info, warn};
 
 // Setup the static channels
 static CAPTURE_CHAN: StaticChannel<Payload, 32_768> = StaticChannel::new();
@@ -157,7 +157,7 @@ pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre:
             handles.append(&mut these_handles);
         }
         Err(_) => {
-            info!("Skipping pulse injection, folder missing or empty or contains invalid data");
+            warn!("Skipping pulse injection, folder missing or empty or contains invalid data");
             let mut these_handles = thread_spawn!((
                 "downsample",
                 processing::downsample_task(
