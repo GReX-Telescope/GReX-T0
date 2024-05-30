@@ -2,7 +2,7 @@
 use crate::common::{payload_time, Payload, BLOCK_TIMEOUT, CHANNELS, FIRST_PACKET};
 use byte_slice_cast::AsSliceOf;
 use memmap2::Mmap;
-use ndarray::{s, ArrayView, ArrayView2};
+use ndarray::{s, Array2, ArrayView, ArrayView2};
 use std::{
     fs::File,
     path::PathBuf,
@@ -23,18 +23,14 @@ fn read_pulse(pulse_mmap: &Mmap) -> eyre::Result<ArrayView2<i8>> {
     Ok(block)
 }
 
-pub fn pulse_injection_task(
-    input: StaticReceiver<Payload>,
-    output: StaticSender<Payload>,
-    cadence: Duration,
-    pulse_path: PathBuf,
-    mut shutdown: broadcast::Receiver<()>,
-) -> eyre::Result<()> {
-    // Grab all the .dat files in the given directory
-    let pulse_path = std::fs::read_dir(pulse_path);
+struct Injections {
+    pulses: Vec<Array2<i8>>,
+}
 
-    if let Ok(path) = pulse_path {
-        let pulses: Vec<_> = path
+impl Injections {
+    pub fn new(pulse_path: PathBuf) -> eyre::Result<Self> {
+        // Grab all the .dat files in the given directory
+        let pulse_files: Vec<_> = std::fs::read_dir(pulse_path)?
             .filter_map(|f| match f {
                 Ok(de) => {
                     let path = de.path();
@@ -49,17 +45,34 @@ pub fn pulse_injection_task(
             })
             .collect();
 
-        let mut pulse_cycle = pulses.iter().cycle();
+        // Read all the pulses off the disk
+        let mut pulses = vec![];
+        for file in pulse_files {
+            let mmap = unsafe { Mmap::map(&File::open(file)?)? };
+            let pulse_view = read_pulse(&mmap)?;
+            pulses.push(pulse_view.to_owned());
+        }
 
+        Ok(Self { pulses })
+    }
+}
+
+pub fn pulse_injection_task(
+    input: StaticReceiver<Payload>,
+    output: StaticSender<Payload>,
+    cadence: Duration,
+    pulse_path: PathBuf,
+    mut shutdown: broadcast::Receiver<()>,
+) -> eyre::Result<()> {
+    if let Ok(injections) = Injections::new(pulse_path) {
         info!("Starting pulse injection!");
 
+        // State variables
+        let mut pulse_cycle = injections.pulses.iter().cycle();
         let mut i = 0;
         let mut currently_injecting = false;
         let mut last_injection = Instant::now();
-
-        // State for current pulse
-        let mut current_mmap = unsafe { Mmap::map(&File::open(pulse_cycle.next().unwrap())?)? };
-        let mut current_pulse = read_pulse(&current_mmap)?;
+        let mut current_pulse = pulse_cycle.next().unwrap();
 
         loop {
             if shutdown.try_recv().is_ok() {
@@ -96,9 +109,7 @@ pub fn pulse_injection_task(
                         // If we've gone through all of it, stop and move to the next pulse
                         if i == current_pulse.shape()[1] {
                             currently_injecting = false;
-                            current_mmap =
-                                unsafe { Mmap::map(&File::open(pulse_cycle.next().unwrap())?)? };
-                            current_pulse = read_pulse(&current_mmap)?;
+                            current_pulse = pulse_cycle.next().unwrap();
                         }
                     }
                     output.send(payload)?;
