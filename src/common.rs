@@ -103,6 +103,11 @@ impl Payload {
         // - It is safe to .offset() the pointer repeatedely along all axes (it's all bytes)
         // - The stides are non-negative
         // - The product of the non-zero axis lenghts (2*CHANNELS*2) does not exceed isize::MAX
-        unsafe { ArrayView::from_shape_ptr((2, CHANNELS, 2), std::mem::transmute(raw_ptr)) }
+        unsafe {
+            ArrayView::from_shape_ptr(
+                (2, CHANNELS, 2),
+                std::mem::transmute::<*const Channel, *const i8>(raw_ptr),
+            )
+        }
     }
 }
