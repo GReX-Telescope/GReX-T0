@@ -68,7 +68,7 @@ impl Capture {
             .into());
         }
         // Set into nonblocking mode
-        socket.set_nonblocking(true);
+        socket.set_nonblocking(true)?;
         // Replace the socket2 socket with a std socket
         let sock = socket.into();
         Ok(Self {
