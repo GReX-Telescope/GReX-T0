@@ -67,6 +67,8 @@ impl Capture {
             }
             .into());
         }
+        // Set into nonblocking mode
+        socket.set_nonblocking(true);
         // Replace the socket2 socket with a std socket
         let sock = socket.into();
         Ok(Self {
@@ -80,11 +82,20 @@ impl Capture {
     }
 
     pub fn capture(&mut self, buf: &mut [u8]) -> eyre::Result<()> {
-        let n = self.sock.recv(buf)?;
-        if n != buf.len() {
-            Err(Error::SizeMismatch(n).into())
-        } else {
-            Ok(())
+        loop {
+            match self.sock.recv(buf) {
+                Ok(n) => {
+                    if n != buf.len() {
+                        return Err(Error::SizeMismatch(n).into());
+                    } else {
+                        return Ok(());
+                    }
+                }
+                Err(ref err) if err.kind() == ErrorKind::WouldBlock => {
+                    continue;
+                }
+                Err(e) => return Err(e),
+            }
         }
     }
 
