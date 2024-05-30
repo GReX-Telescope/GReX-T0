@@ -91,7 +91,7 @@ impl Capture {
                         return Ok(());
                     }
                 }
-                Err(ref err) if err.kind() == ErrorKind::WouldBlock => {
+                Err(ref err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                     continue;
                 }
                 Err(e) => return Err(e.into()),
