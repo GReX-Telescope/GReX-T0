@@ -12,6 +12,13 @@
       };
     };
 
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+      };
+    };
+
     psrdada = {
       url = "github:kiranshila/psrdada.nix";
       inputs = {
@@ -27,12 +34,26 @@
     flake-utils,
     psrdada,
     crane,
+    fenix,
     ...
   }:
     flake-utils.lib.eachDefaultSystem (system: let
-      pkgs = import nixpkgs {inherit system;};
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [fenix.overlays.default];
+      };
+
       inherit (pkgs) lib;
-      craneLib = crane.mkLib nixpkgs.legacyPackages.${system};
+
+      craneLib =
+        (crane.mkLib pkgs).overrideToolchain
+        (pkgs.fenix.complete.withComponents [
+          "cargo"
+          "clippy"
+          "rust-src"
+          "rustc"
+          "rustfmt"
+        ]);
 
       # T0 depends on an fpg file to build the SNAP interface,
       # so that must be deterministically included as well
@@ -45,10 +66,12 @@
 
       commonArgs = {
         inherit src;
+
         nativeBuildInputs = with pkgs; [
           rustPlatform.bindgenHook
           pkg-config
         ];
+
         buildInputs = with pkgs; [
           netcdf
           hdf5
@@ -87,7 +110,7 @@
           alejandra
           cargo-machete
           cargo-outdated
-          rust-analyzer
+          rust-analyzer-nightly
         ];
       };
     });
