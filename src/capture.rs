@@ -94,7 +94,7 @@ impl Capture {
                 Err(ref err) if err.kind() == ErrorKind::WouldBlock => {
                     continue;
                 }
-                Err(e) => return Err(e),
+                Err(e) => return Err(e.into()),
             }
         }
     }
