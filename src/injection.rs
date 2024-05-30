@@ -57,6 +57,16 @@ impl Injections {
     }
 }
 
+/// Inject this pulse sample into the given payload
+pub fn inject(pl: &mut Payload, sample: &[i8]) {
+    // For both polarizations, add the real part by the value of the corresponding channel in the fake pulse data
+    debug_assert_eq!(sample.len(), CHANNELS);
+    for (i, sample) in sample.iter().enumerate() {
+        pl.pol_a[i].0.re += sample;
+        pl.pol_b[i].0.re += sample;
+    }
+}
+
 pub fn pulse_injection_task(
     input: StaticReceiver<Payload>,
     output: StaticSender<Payload>,
@@ -93,17 +103,11 @@ pub fn pulse_injection_task(
                     );
                 }
                 if currently_injecting {
-                    // Get the slice of fake pulse data
-                    let this_sample = current_pulse.slice(s![.., i]);
-                    // Add the current time slice of the fake pulse into the stream of real data
-                    // For both polarizations, add the real part by the value of the corresponding channel in the fake pulse data
-                    for (payload_val, pulse_val) in payload.pol_a.iter_mut().zip(this_sample) {
-                        payload_val.0.re += *pulse_val;
-                    }
-                    // And again for pol_b
-                    for (payload_val, pulse_val) in payload.pol_b.iter_mut().zip(this_sample) {
-                        payload_val.0.re += *pulse_val;
-                    }
+                    // Get the slice of fake pulse data and inject
+                    inject(
+                        &mut payload,
+                        current_pulse.slice(s![.., i]).as_slice().unwrap(),
+                    );
                     i += 1;
                     // If we've gone through all of it, stop and move to the next pulse
                     if i == current_pulse.shape()[1] {

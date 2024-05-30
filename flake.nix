@@ -109,6 +109,7 @@
         packages = with pkgs; [
           alejandra
           cargo-machete
+          cargo-show-asm
           cargo-outdated
           rust-analyzer-nightly
         ];

@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use grex_t0::{common::Payload, dumps::DumpRing};
+use grex_t0::{common::Payload, dumps::DumpRing, injection::inject};
 
 pub fn push_ring(c: &mut Criterion) {
     let mut dr = DumpRing::new(15);
@@ -11,20 +11,11 @@ pub fn push_ring(c: &mut Criterion) {
     });
 }
 
-pub fn inject_complex(c: &mut Criterion) {
+pub fn injection(c: &mut Criterion) {
     let mut payload = Payload::default();
-    let pulse_time_slice = [0.0f64; 2048];
-    c.bench_function("complex injection", |b| {
-        b.iter(|| {
-            for (payload_val, pulse_val) in payload.pol_a.iter_mut().zip(pulse_time_slice) {
-                payload_val.0.re += (pulse_val).round() as i8;
-            }
-            for (payload_val, pulse_val) in payload.pol_b.iter_mut().zip(pulse_time_slice) {
-                payload_val.0.re += (pulse_val).round() as i8;
-            }
-        })
-    });
+    let slice = [123i8; 2048];
+    c.bench_function("injection", |b| b.iter(|| inject(&mut payload, &slice)));
 }
 
-criterion_group!(benches, push_ring, inject_complex);
+criterion_group!(benches, push_ring, injection);
 criterion_main!(benches);
