@@ -19,7 +19,7 @@ use tracing::info;
 fn read_pulse(pulse_mmap: &Mmap) -> eyre::Result<ArrayView2<i8>> {
     let raw_bytes = pulse_mmap[..].as_slice_of::<i8>()?;
     let time_samples = raw_bytes.len() / CHANNELS;
-    let block = ArrayView::from_shape((CHANNELS, time_samples), raw_bytes)?;
+    let block = ArrayView::from_shape((time_samples, CHANNELS), raw_bytes)?;
     Ok(block)
 }
 
@@ -50,7 +50,7 @@ impl Injections {
         for file in pulse_files {
             let mmap = unsafe { Mmap::map(&File::open(file)?)? };
             let pulse_view = read_pulse(&mmap)?;
-            pulses.push(pulse_view.t().as_standard_layout().to_owned());
+            pulses.push(pulse_view.as_standard_layout().to_owned());
         }
 
         Ok(Self { pulses })
