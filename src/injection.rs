@@ -1,6 +1,5 @@
 //! Task for injecting a fake pulse into the timestream to test/validate downstream components
 use crate::common::{payload_time, Payload, BLOCK_TIMEOUT, CHANNELS, FIRST_PACKET};
-use actix_web::rt::time;
 use byte_slice_cast::AsSliceOf;
 use memmap2::Mmap;
 use ndarray::{s, Array2, ArrayView, ArrayView2};
@@ -20,7 +19,7 @@ use tracing::info;
 fn read_pulse(pulse_mmap: &Mmap) -> eyre::Result<ArrayView2<i8>> {
     let raw_bytes = pulse_mmap[..].as_slice_of::<i8>()?;
     let time_samples = raw_bytes.len() / CHANNELS;
-    let block = ArrayView::from_shape((CHANNELS, time_samples), raw_bytes)?;
+    let block = ArrayView::from_shape((time_samples, CHANNELS), raw_bytes)?;
     Ok(block)
 }
 
@@ -107,7 +106,7 @@ pub fn pulse_injection_task(
                     // Get the slice of fake pulse data and inject
                     inject(
                         &mut payload,
-                        current_pulse.slice(s![.., i]).as_slice().unwrap(),
+                        current_pulse.slice(s![i, ..]).as_slice().unwrap(),
                     );
                     i += 1;
                     // If we've gone through all of it, stop and move to the next pulse
