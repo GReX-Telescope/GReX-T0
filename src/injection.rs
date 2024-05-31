@@ -19,7 +19,7 @@ use tracing::info;
 fn read_pulse(pulse_mmap: &Mmap) -> eyre::Result<ArrayView2<i8>> {
     let raw_bytes = pulse_mmap[..].as_slice_of::<i8>()?;
     let time_samples = raw_bytes.len() / CHANNELS;
-    let block = ArrayView::from_shape((time_samples, CHANNELS), raw_bytes)?;
+    let block = ArrayView::from_shape((CHANNELS, time_samples), raw_bytes)?;
     Ok(block)
 }
 
@@ -62,8 +62,8 @@ pub fn inject(pl: &mut Payload, sample: &[i8]) {
     // For both polarizations, add the real part by the value of the corresponding channel in the fake pulse data
     debug_assert_eq!(sample.len(), CHANNELS);
     for (i, sample) in sample.iter().enumerate() {
-        pl.pol_a[i].0.re += sample;
-        pl.pol_b[i].0.re += sample;
+        pl.pol_a[i].0.re += 10 * sample;
+        pl.pol_b[i].0.re += 10 * sample;
     }
 }
 
