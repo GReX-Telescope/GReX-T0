@@ -49,8 +49,10 @@ impl Injections {
         let mut pulses = vec![];
         for file in pulse_files {
             let mmap = unsafe { Mmap::map(&File::open(file)?)? };
+            // FIXME FIXME, the injection generation code is *WRONG* and generates transposed data.
+            // The correct memory layout is frequency should be the fastest-changing axis
             let pulse_view = read_pulse(&mmap)?;
-            pulses.push(pulse_view.to_owned());
+            pulses.push(pulse_view.t().to_owned());
         }
 
         Ok(Self { pulses })
