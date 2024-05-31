@@ -19,7 +19,7 @@ use tracing::info;
 fn read_pulse(pulse_mmap: &Mmap) -> eyre::Result<ArrayView2<i8>> {
     let raw_bytes = pulse_mmap[..].as_slice_of::<i8>()?;
     let time_samples = raw_bytes.len() / CHANNELS;
-    let block = ArrayView::from_shape((CHANNELS, time_samples), raw_bytes)?;
+    let block = ArrayView::from_shape((time_samples, CHANNELS), raw_bytes)?;
     Ok(block)
 }
 
