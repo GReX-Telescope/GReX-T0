@@ -108,7 +108,7 @@ pub fn pulse_injection_task(
                     // Get the slice of fake pulse data and inject
                     inject(
                         &mut payload,
-                        current_pulse.slice(s![.., i]).as_slice().unwrap(),
+                        current_pulse.slice(s![i, ..]).as_slice().unwrap(),
                     );
                     i += 1;
                     // If we've gone through all of it, stop and move to the next pulse
