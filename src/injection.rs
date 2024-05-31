@@ -52,7 +52,7 @@ impl Injections {
             // FIXME FIXME, the injection generation code is *WRONG* and generates transposed data.
             // The correct memory layout is frequency should be the fastest-changing axis
             let pulse_view = read_pulse(&mmap)?;
-            pulses.push(pulse_view.t().to_owned());
+            pulses.push(pulse_view.t().as_standard_layout().to_owned());
         }
 
         Ok(Self { pulses })
