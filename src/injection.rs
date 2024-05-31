@@ -20,11 +20,6 @@ fn read_pulse(pulse_mmap: &Mmap) -> eyre::Result<ArrayView2<i8>> {
     let raw_bytes = pulse_mmap[..].as_slice_of::<i8>()?;
     let time_samples = raw_bytes.len() / CHANNELS;
     let block = ArrayView::from_shape((time_samples, CHANNELS), raw_bytes)?;
-    for thing in block {
-        if *thing != 0 {
-            info!("Contains nonzero");
-        }
-    }
     Ok(block)
 }
 
@@ -89,6 +84,8 @@ pub fn pulse_injection_task(
     let mut last_injection = Instant::now();
     let mut current_pulse = pulse_cycle.next().unwrap();
 
+    let current_pulse_length = current_pulse.shape()[0];
+
     loop {
         if shutdown.try_recv().is_ok() {
             info!("Injection task stopping");
@@ -112,11 +109,14 @@ pub fn pulse_injection_task(
                     // Get the slice of fake pulse data and inject
                     inject(
                         &mut payload,
-                        current_pulse.slice(s![i, ..]).as_slice().unwrap(),
+                        current_pulse
+                            .slice(s![i, ..])
+                            .as_slice()
+                            .expect("Sliced injection not in correct memory order"),
                     );
                     i += 1;
                     // If we've gone through all of it, stop and move to the next pulse
-                    if i == current_pulse.shape()[1] {
+                    if i == current_pulse_length {
                         currently_injecting = false;
                         current_pulse = pulse_cycle.next().unwrap();
                     }
