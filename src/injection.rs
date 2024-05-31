@@ -60,10 +60,9 @@ impl Injections {
 /// Inject this pulse sample into the given payload
 pub fn inject(pl: &mut Payload, sample: &[i8]) {
     // For both polarizations, add the real part by the value of the corresponding channel in the fake pulse data
-    debug_assert_eq!(sample.len(), CHANNELS);
     for (i, sample) in sample.iter().enumerate() {
-        pl.pol_a[i].0.re += 10 * sample;
-        pl.pol_b[i].0.re += 10 * sample;
+        pl.pol_a[i].0.re = 127;
+        pl.pol_b[i].0.re = 127;
     }
 }
 
