@@ -24,7 +24,7 @@ fn read_pulse(pulse_mmap: &Mmap) -> eyre::Result<ArrayView2<i8>> {
 }
 
 pub struct Injections {
-    pulses: Vec<Array2<i8>>,
+    pulses: Vec<(String, Array2<i8>)>,
 }
 
 impl Injections {
@@ -48,9 +48,14 @@ impl Injections {
         // Read all the pulses off the disk
         let mut pulses = vec![];
         for file in pulse_files {
+            let filename = file
+                .file_name()
+                .expect("Invalid file name")
+                .to_string_lossy()
+                .into();
             let mmap = unsafe { Mmap::map(&File::open(file)?)? };
             let pulse_view = read_pulse(&mmap)?;
-            pulses.push(pulse_view.to_owned());
+            pulses.push((filename, pulse_view.to_owned()));
         }
 
         Ok(Self { pulses })
@@ -61,11 +66,8 @@ impl Injections {
 pub fn inject(pl: &mut Payload, sample: &[i8]) {
     // For both polarizations, add the real part by the value of the corresponding channel in the fake pulse data
     for (i, &sample) in sample.iter().enumerate() {
-        // Don't bother adding zeros
-        if sample != 0 {
-            pl.pol_a[i].0.re += sample;
-            pl.pol_b[i].0.re += sample;
-        }
+        pl.pol_a[i].0.re += sample;
+        pl.pol_b[i].0.re += sample;
     }
 }
 
@@ -83,9 +85,9 @@ pub fn pulse_injection_task(
     let mut i = 0;
     let mut currently_injecting = false;
     let mut last_injection = Instant::now();
-    let mut current_pulse = pulse_cycle.next().unwrap();
+    let mut this_pulse = pulse_cycle.next().unwrap();
 
-    let current_pulse_length = current_pulse.shape()[0];
+    let current_pulse_length = this_pulse.1.shape()[0];
 
     loop {
         if shutdown.try_recv().is_ok() {
@@ -103,6 +105,7 @@ pub fn pulse_injection_task(
                         raw_sample = payload.count,
                         processed_sample = payload.count - FIRST_PACKET.load(Ordering::Acquire),
                         payload_mjd = payload_time(payload.count).to_mjd_tai_days(),
+                        filename = this_pulse.0,
                         "Injecting pulse"
                     );
                 }
@@ -110,7 +113,8 @@ pub fn pulse_injection_task(
                     // Get the slice of fake pulse data and inject
                     inject(
                         &mut payload,
-                        current_pulse
+                        this_pulse
+                            .1
                             .slice(s![i, ..])
                             .as_slice()
                             .expect("Sliced injection not in correct memory order"),
@@ -119,7 +123,7 @@ pub fn pulse_injection_task(
                     // If we've gone through all of it, stop and move to the next pulse
                     if i == current_pulse_length {
                         currently_injecting = false;
-                        current_pulse = pulse_cycle.next().unwrap();
+                        this_pulse = pulse_cycle.next().unwrap();
                     }
                 }
                 output.send(payload)?;
