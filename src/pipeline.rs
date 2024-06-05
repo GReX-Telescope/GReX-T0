@@ -1,7 +1,5 @@
 use crate::{
-    args,
-    calibrate::calibrate,
-    capture,
+    args, capture,
     common::{payload_start_time, Payload, CHANNELS},
     dumps::{self, DumpRing},
     exfil,
@@ -89,15 +87,10 @@ pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre:
     if cli.trig {
         device.force_pps()?;
     }
-    // Perform the bandpass calibration routine (if needed)
-    if let Some(requant_gain) = cli.requant_gain {
-        info!("Setting requant gains directly without bandpass calibration");
-        let gain = [requant_gain; CHANNELS];
-        device.set_requant_gains(&gain, &gain)?;
-    } else {
-        info!("Calibrating bandpass");
-        calibrate(&mut device)?;
-    }
+    // Set the requantization gains
+    let gain = [cli.requant_gain; CHANNELS];
+    device.set_requant_gains(&gain, &gain)?;
+
     // These may not need to be static
     let (cap_s, cap_r) = CAPTURE_CHAN.split();
     let (dump_s, dump_r) = DUMP_CHAN.split();
