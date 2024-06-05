@@ -1,8 +1,9 @@
 //! Task for injecting a fake pulse into the timestream to test/validate downstream components
-use crate::common::{payload_time, Payload, BLOCK_TIMEOUT, CHANNELS, FIRST_PACKET};
+use crate::common::{payload_time, Channel, Payload, BLOCK_TIMEOUT, CHANNELS, FIRST_PACKET};
 use byte_slice_cast::AsSliceOf;
 use memmap2::Mmap;
 use ndarray::{s, Array2, ArrayView, ArrayView2};
+use pulp::{as_arrays, as_arrays_mut, cast, i8x32, x86::V3};
 use std::{
     fs::File,
     path::PathBuf,
@@ -62,13 +63,60 @@ impl Injections {
     }
 }
 
-/// Inject this pulse sample into the given payload
-pub fn inject(pl: &mut Payload, sample: &[i8]) {
-    // For both polarizations, add the real part by the value of the corresponding channel in the fake pulse data
-    for (i, &sample) in sample.iter().enumerate() {
-        pl.pol_a[i].0.re += sample;
-        pl.pol_b[i].0.re += sample;
+pub fn simd_injection(live: &mut [i8; 2 * CHANNELS], injection: &[i8; CHANNELS]) {
+    if let Some(simd) = V3::try_new() {
+        struct Impl<'a> {
+            simd: V3,
+            dst: &'a mut [i8],
+            src: &'a [i8],
+        }
+
+        impl pulp::NullaryFnOnce for Impl<'_> {
+            type Output = ();
+
+            #[inline(always)]
+            fn call(self) -> Self::Output {
+                let Self { simd, src, dst } = self;
+
+                // Zeros to interleave
+                let zeros = simd.splat_i8x32(0);
+                // Chunks to line up with AVX256
+                let (src_chunks, _) = as_arrays::<16, _>(src);
+                let (dst_chunks, _) = as_arrays_mut::<32, _>(dst);
+                for (d, &s) in dst_chunks.iter_mut().zip(src_chunks) {
+                    // Cast the i8x16 src chunk into the lower bytes of an i8x32 (noop)
+                    // [X X X ... A B C ...
+                    let s: i8x32 = cast(simd.avx._mm256_castps128_ps256(cast(s)));
+                    // Interleave the upper bytes with zeros to get them aligned with the real components
+                    // [A 0 B 0 C 0 ...]
+                    let interleaved = simd.avx2._mm256_unpacklo_epi8(cast(s), cast(zeros));
+                    // Perform the add
+                    let res: [i8; 32] = cast(simd.avx2._mm256_add_epi8(cast(*d), interleaved));
+                    // And assign
+                    d.clone_from_slice(&res);
+                }
+                // No tail to process as both are multiples of 16
+            }
+        }
+
+        simd.vectorize(Impl {
+            simd,
+            dst: live,
+            src: injection,
+        })
+    } else {
+        panic!("This hardware doesn't have support for x86_64_v3")
     }
+}
+
+/// Inject this pulse sample into the given payload
+pub fn inject(pl: &mut Payload, sample: &[i8; CHANNELS]) {
+    let a_slice =
+        unsafe { std::mem::transmute::<&mut [Channel; 2048], &mut [i8; 4096]>(&mut pl.pol_a) };
+    let b_slice =
+        unsafe { std::mem::transmute::<&mut [Channel; 2048], &mut [i8; 4096]>(&mut pl.pol_b) };
+    simd_injection(a_slice, sample);
+    simd_injection(b_slice, sample);
 }
 
 pub fn pulse_injection_task(
@@ -117,7 +165,9 @@ pub fn pulse_injection_task(
                             .1
                             .slice(s![i, ..])
                             .as_slice()
-                            .expect("Sliced injection not in correct memory order"),
+                            .expect("Sliced injection not in correct memory order")
+                            .try_into()
+                            .expect("Wrong number of channels"),
                     );
                     i += 1;
                     // If we've gone through all of it, stop and move to the next pulse
