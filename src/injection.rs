@@ -3,7 +3,7 @@ use crate::common::{payload_time, Channel, Payload, BLOCK_TIMEOUT, CHANNELS, FIR
 use byte_slice_cast::AsSliceOf;
 use memmap2::Mmap;
 use ndarray::{s, Array2, ArrayView, ArrayView2};
-use pulp::{as_arrays, as_arrays_mut, cast, i8x32, x86::V3};
+use pulp::{as_arrays, as_arrays_mut, cast, x86::V3};
 use std::{
     fs::File,
     path::PathBuf,
@@ -79,17 +79,19 @@ pub fn simd_injection(live: &mut [i8; 2 * CHANNELS], injection: &[i8; CHANNELS])
                 let Self { simd, src, dst } = self;
 
                 // Zeros to interleave
-                let zeros = simd.splat_i8x32(0);
+                let zeros = cast(simd.splat_i8x32(0));
                 // Chunks to line up with AVX256
                 let (src_chunks, _) = as_arrays::<16, _>(src);
                 let (dst_chunks, _) = as_arrays_mut::<32, _>(dst);
                 for (d, &s) in dst_chunks.iter_mut().zip(src_chunks) {
-                    // Cast the i8x16 src chunk into the lower bytes of an i8x32 (noop)
-                    // [X X X ... A B C ...
-                    let s: i8x32 = cast(simd.avx._mm256_castps128_ps256(cast(s)));
-                    // Interleave the upper bytes with zeros to get them aligned with the real components
-                    // [A 0 B 0 C 0 ...]
-                    let interleaved = simd.avx2._mm256_unpacklo_epi8(cast(s), cast(zeros));
+                    // Cast the source slice into a 256-bit lane (noop)
+                    let s = simd.avx._mm256_castsi128_si256(cast(s));
+                    // Unpack and interleave the lower bytes
+                    let res_lo = simd.avx2._mm256_unpacklo_epi8(s, zeros);
+                    // Unpack and interleave the higher bytes
+                    let res_hi = simd.avx2._mm256_unpackhi_epi8(s, zeros);
+                    // Concat the lower and upper to interleave
+                    let interleaved = simd.avx2._mm256_permute2x128_si256::<0x20>(res_lo, res_hi);
                     // Perform the add
                     let res: [i8; 32] = cast(simd.avx2._mm256_add_epi8(cast(*d), interleaved));
                     // And assign
@@ -111,6 +113,7 @@ pub fn simd_injection(live: &mut [i8; 2 * CHANNELS], injection: &[i8; CHANNELS])
 
 /// Inject this pulse sample into the given payload
 pub fn inject(pl: &mut Payload, sample: &[i8; CHANNELS]) {
+    // Safety: These transmutes are safe because Complex<i8> has the same alignment requirements as an i8
     let a_slice =
         unsafe { std::mem::transmute::<&mut [Channel; 2048], &mut [i8; 4096]>(&mut pl.pol_a) };
     let b_slice =
