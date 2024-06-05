@@ -15,7 +15,5 @@ async fn main() -> eyre::Result<()> {
     for handle in handles {
         handle.join().unwrap()?;
     }
-    // Cleanup logging
-    opentelemetry::global::shutdown_tracer_provider();
     Ok(())
 }
