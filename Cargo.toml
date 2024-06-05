@@ -57,6 +57,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thingbuf = { version = "0.1", features = ["static"] }
 arrayvec = "0.7"
 memmap2 = "0.9"
+pulp = "0.18"
 
 [patch.crates-io]
 # Once a new release of hdf5 is pushed, and netcdf follows, this can be removed
