@@ -1,5 +1,5 @@
 //! Inter-thread processing (downsampling, etc)
-use crate::common::{Payload, Stokes, BLOCK_TIMEOUT, CHANNELS};
+use crate::common::{stokes_i, Payload, Stokes, BLOCK_TIMEOUT, CHANNELS};
 use eyre::bail;
 use thingbuf::mpsc::{
     blocking::{Sender, StaticReceiver, StaticSender},
@@ -19,6 +19,7 @@ pub fn downsample_task(
     info!("Starting downsample task");
     let downsamp_iters = 2usize.pow(downsample_power);
     let mut downsamp_buf = [0f32; CHANNELS];
+    let mut stokes_buf = [0f32; CHANNELS];
     let mut local_downsamp_iters = 0;
 
     loop {
@@ -32,17 +33,16 @@ pub fn downsample_task(
             Err(RecvTimeoutError::Closed) => break,
             Err(_) => unreachable!(),
         };
-        // Compute Stokes I
-        let stokes = payload.stokes_i();
         // Send payload to dump (non-blocking)
         if let Err(thingbuf::mpsc::errors::TrySendError::Closed(_)) = to_dumps.try_send(*payload) {
             bail!("Channel closed");
         }
-        debug_assert_eq!(stokes.len(), CHANNELS);
+        // Compute Stokes I
+        stokes_i(&mut stokes_buf, &payload);
         // Add to averaging bufs
         downsamp_buf
             .iter_mut()
-            .zip(&stokes)
+            .zip(&stokes_buf)
             .for_each(|(x, y)| *x += y);
 
         // Increment the count
