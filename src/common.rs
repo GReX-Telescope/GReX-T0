@@ -4,6 +4,7 @@ use arrayvec::ArrayVec;
 use hifitime::prelude::*;
 use ndarray::prelude::*;
 use num_complex::Complex;
+use pulp::{as_arrays, as_arrays_mut, cast, f32x8, i16x16, i32x8, x86::V3};
 use std::sync::{
     atomic::{AtomicU64, Ordering},
     Arc, Mutex, OnceLock,
@@ -46,25 +47,9 @@ impl Channel {
     pub fn new(re: i8, im: i8) -> Self {
         Self(Complex::new(re, im))
     }
-
-    pub fn abs_squared(&self) -> u16 {
-        let r = i16::from(self.0.re);
-        let i = i16::from(self.0.im);
-        (r * r + i * i) as u16
-    }
 }
 
 pub type Channels = [Channel; CHANNELS];
-
-pub fn stokes_i(a: &Channels, b: &Channels) -> Stokes {
-    // This allocated uninit, so we gucci
-    let mut stokes = ArrayVec::new();
-    for (a, b) in a.iter().zip(b) {
-        // Source is Fix8_7, so x^2 is Fix16_14, sum won't have bit growth
-        stokes.push(f32::from(a.abs_squared() + b.abs_squared()) / f32::from(1u16 << 14));
-    }
-    stokes
-}
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
@@ -83,11 +68,6 @@ impl Default for Payload {
 }
 
 impl Payload {
-    /// Calculate the Stokes-I parameter for this payload
-    pub fn stokes_i(&self) -> Stokes {
-        stokes_i(&self.pol_a, &self.pol_b)
-    }
-
     /// Yields an [`ndarray::ArrayView3`] of dimensions (Polarization, Channel, Real/Imaginary)
     pub fn as_ndarray_data_view(&self) -> ArrayView3<i8> {
         // C-array format, so the pol_a, pol_b chunk is in memory as
@@ -110,4 +90,56 @@ impl Payload {
             )
         }
     }
+}
+
+fn simd_stokes(dst: &mut [f32; CHANNELS], a: &[i8; 2 * CHANNELS], b: &[i8; 2 * CHANNELS]) {
+    if let Some(simd) = V3::try_new() {
+        struct Impl<'a> {
+            simd: V3,
+            dst: &'a mut [f32],
+            a: &'a [i8],
+            b: &'a [i8],
+        }
+
+        impl pulp::NullaryFnOnce for Impl<'_> {
+            type Output = ();
+
+            #[inline(always)]
+            fn call(self) -> Self::Output {
+                let Self { simd, dst, a, b } = self;
+                // Scale to normalize the floating point result
+                let scale = cast([16384f32; 8]);
+                // We want to exploint f32 FMA, which in AVX256 will work on f32x8 (once again no tail to process)
+                let (dst_chunks, _) = as_arrays_mut::<8, _>(dst);
+                let (a_chunks, _) = as_arrays::<16, _>(a);
+                let (b_chunks, _) = as_arrays::<16, _>(b);
+                for ((d, &a_chunk), &b_chunk) in dst_chunks.iter_mut().zip(a_chunks).zip(b_chunks) {
+                    // Sign extend packed bytes into packed i16
+                    let a_ext: i16x16 = cast(simd.avx2._mm256_cvtepi8_epi16(cast(a_chunk)));
+                    let b_ext: i16x16 = cast(simd.avx2._mm256_cvtepi8_epi16(cast(b_chunk)));
+                    // Perform the horizontal FMA, returning i32x8
+                    let mag_a: i32x8 = cast(simd.avx2._mm256_madd_epi16(cast(a_ext), cast(a_ext)));
+                    let mag_b: i32x8 = cast(simd.avx2._mm256_madd_epi16(cast(b_ext), cast(b_ext)));
+                    // Sum to form stokes i
+                    let stokes: i32x8 = cast(simd.avx2._mm256_add_epi32(cast(mag_a), cast(mag_b)));
+                    // Convert to float
+                    let floats: f32x8 = cast(simd.avx._mm256_cvtepi32_ps(cast(stokes)));
+                    // Scale the fixed point result
+                    let floats: [f32; 8] = cast(simd.avx._mm256_div_ps(cast(floats), scale));
+                    // And assign
+                    d.clone_from_slice(&floats);
+                }
+            }
+        }
+
+        simd.vectorize(Impl { simd, dst, a, b });
+    } else {
+        panic!("This hardware doesn't have support for x86_64_v3")
+    }
+}
+
+pub fn stokes_i(out: &mut [f32; CHANNELS], pl: &Payload) {
+    let a_slice = unsafe { std::mem::transmute::<&[Channel; 2048], &[i8; 4096]>(&pl.pol_a) };
+    let b_slice = unsafe { std::mem::transmute::<&[Channel; 2048], &[i8; 4096]>(&pl.pol_b) };
+    simd_stokes(out, a_slice, b_slice);
 }
