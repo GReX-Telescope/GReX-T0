@@ -1,5 +1,8 @@
 //! Task for injecting a fake pulse into the timestream to test/validate downstream components
-use crate::common::{payload_time, Channel, Payload, BLOCK_TIMEOUT, CHANNELS, FIRST_PACKET};
+use crate::{
+    common::{payload_time, Channel, Payload, BLOCK_TIMEOUT, CHANNELS, FIRST_PACKET},
+    db::InjectionRecord,
+};
 use byte_slice_cast::AsSliceOf;
 use memmap2::Mmap;
 use ndarray::{s, Array2, ArrayView, ArrayView2};
@@ -125,6 +128,7 @@ pub fn inject(pl: &mut Payload, sample: &[i8; CHANNELS]) {
 pub fn pulse_injection_task(
     input: StaticReceiver<Payload>,
     output: StaticSender<Payload>,
+    injection_record_sender: std::sync::mpsc::SyncSender<InjectionRecord>,
     cadence: Duration,
     injections: Injections,
     mut shutdown: broadcast::Receiver<()>,
@@ -152,13 +156,17 @@ pub fn pulse_injection_task(
                     last_injection = Instant::now();
                     currently_injecting = true;
                     i = 0;
+                    let record = InjectionRecord {
+                        mjd: payload_time(payload.count).to_mjd_tai_days(),
+                        sample: payload.count - FIRST_PACKET.load(Ordering::Acquire),
+                        filename: this_pulse.0.clone(),
+                    };
                     info!(
-                        raw_sample = payload.count,
-                        processed_sample = payload.count - FIRST_PACKET.load(Ordering::Acquire),
-                        payload_mjd = payload_time(payload.count).to_mjd_tai_days(),
-                        filename = this_pulse.0,
+                        filename = record.filename,
+                        mjd = record.mjd,
                         "Injecting pulse"
                     );
+                    let _ = injection_record_sender.send(record);
                 }
                 if currently_injecting {
                     // Get the slice of fake pulse data and inject

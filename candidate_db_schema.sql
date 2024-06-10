@@ -1,0 +1,33 @@
+CREATE TABLE IF NOT EXISTS candidate (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    dm REAL NOT NULL,
+    snr REAL NOT NULL,
+    mjd REAL NOT NULL,
+    boxcar INTEGER NOT NULL,
+    sample INTEGER NOT NULL
+) STRICT;
+CREATE TABLE IF NOT EXISTS injection (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mjd REAL NOT NULL,
+    filename TEXT NOT NULL,
+    sample INTEGER NOT NULL
+) STRICT;
+CREATE TABLE IF NOT EXISTS cluster (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    centroid INTEGER NOT NULL,
+    injection INTEGER,
+    FOREIGN KEY (centroid) REFERENCES candidate (id),
+    FOREIGN KEY (injection) REFERENCES injection (id)
+) STRICT;
+CREATE TABLE IF NOT EXISTS cluster_member (
+    candidate INTEGER PRIMARY KEY,
+    cluster INTEGER NOT NULL,
+    FOREIGN KEY (candidate) REFERENCES candidate (id),
+    FOREIGN KEY (cluster) REFERENCES cluster (id)
+) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS trigger (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cand_name TEXT,
+    cluster INTEGER NOT NULL,
+    FOREIGN KEY (cluster) REFERENCES cluster (id)
+);

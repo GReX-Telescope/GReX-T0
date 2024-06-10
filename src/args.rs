@@ -11,6 +11,9 @@ pub struct Cli {
     /// Path to save filterbanks
     #[arg(long, default_value = ".")]
     pub filterbank_path: PathBuf,
+    /// Path to the SQLite DB used for storing the injection record
+    #[arg(long)]
+    pub db_path: PathBuf,
     /// CPU cores to which we'll build tasks. They should share a NUMA node.
     #[arg(long, default_value = "0:7", value_parser = parse_core_range)]
     pub core_range: RangeInclusive<usize>,

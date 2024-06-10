@@ -1,6 +1,6 @@
 [package]
 name = "grex_t0"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 
 [dependencies]
@@ -45,6 +45,7 @@ color-eyre = "0.6"
 thiserror = "1"
 
 # Logging Support
+rusqlite = { version = "0.31", features = ["bundled"] }
 actix-web = "4"
 tracing-actix-web = { version = "0.7", features = ["opentelemetry_0_22"] }
 prometheus = "0.13"

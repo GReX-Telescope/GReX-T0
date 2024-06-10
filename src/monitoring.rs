@@ -1,4 +1,5 @@
 use crate::common::processed_payload_start_time;
+use crate::db::InjectionRecord;
 use crate::fpga::Device;
 use crate::{capture::Stats, common::BLOCK_TIMEOUT};
 use actix_web::{dev::Server, get, App, HttpResponse, HttpServer, Responder};
@@ -6,8 +7,11 @@ use paste::paste;
 use prometheus::{
     register_gauge, register_gauge_vec, register_int_gauge, Gauge, GaugeVec, IntGauge, TextEncoder,
 };
-use std::sync::mpsc::{Receiver, RecvTimeoutError};
-use std::sync::OnceLock;
+use rusqlite::Connection;
+use std::sync::{
+    mpsc::{Receiver, RecvTimeoutError},
+    OnceLock,
+};
 use tokio::sync::broadcast;
 use tracing::{info, warn};
 use tracing_actix_web::TracingLogger;
@@ -119,9 +123,12 @@ fn update_spec(device: &mut Device) -> eyre::Result<()> {
     Ok(())
 }
 
+/// The monitor task publishes updates about the capture statistics, queries FPGA state, and updates the SQLite database on events
 pub fn monitor_task(
     mut device: Device,
-    stats: Receiver<Stats>,
+    capture_stats: Receiver<Stats>,
+    injection_events: Receiver<InjectionRecord>,
+    conn: Connection,
     mut shutdown: broadcast::Receiver<()>,
 ) -> eyre::Result<()> {
     info!("Starting monitoring task!");
@@ -131,8 +138,17 @@ pub fn monitor_task(
             info!("Monitoring task stopping");
             break;
         }
+
+        // If there's a new injection event, process that DB action
+        if let Ok(r) = injection_events.try_recv() {
+            match r.db_insert(&conn) {
+                Ok(_) => (),
+                Err(e) => warn!("Error processing DB event - {}", e),
+            }
+        }
+
         // Blocking here is ok, these are infrequent events
-        match stats.recv_timeout(BLOCK_TIMEOUT) {
+        match capture_stats.recv_timeout(BLOCK_TIMEOUT) {
             Ok(stat) => {
                 packet_gauge().set(stat.processed.try_into().unwrap());
                 drop_gauge().set(stat.drops.try_into().unwrap());

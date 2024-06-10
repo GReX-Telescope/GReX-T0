@@ -1,6 +1,7 @@
 use crate::{
     args, capture,
     common::{payload_start_time, Payload, CHANNELS},
+    db,
     dumps::{self, DumpRing},
     exfil,
     fpga::Device,
@@ -27,6 +28,8 @@ static DUMP_CHAN: StaticChannel<Payload, 32_768> = StaticChannel::new();
 
 #[tracing::instrument(level = "debug")]
 pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre::Result<()>>>> {
+    // Connect to the SQLite database
+    let conn = db::connect_and_create(cli.db_path)?;
     // Create the dump ring (early in the program lifecycle to give it a chance to allocate)
     info!("Allocating RAM for the voltage ringbuffer!");
     let ring = DumpRing::new(cli.vbuf_capacity);
@@ -101,6 +104,7 @@ pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre:
     // Less important channels, these don't have to be static (and we don't need thingbuf)
     let (trig_s, trig_r) = std::sync::mpsc::sync_channel(5);
     let (stat_s, stat_r) = std::sync::mpsc::sync_channel(100);
+    let (ir_s, ir_r) = std::sync::mpsc::sync_channel(5);
 
     // Get the CPU core range
     let mut cpus = cli.core_range;
@@ -131,6 +135,7 @@ pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre:
                     injection::pulse_injection_task(
                         cap_r,
                         inject_s,
+                        ir_s,
                         Duration::from_secs(cli.injection_cadence),
                         injections,
                         sd_inject_r
@@ -169,7 +174,7 @@ pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre:
     let mut these_handles = thread_spawn!(
         (
             "collect",
-            monitoring::monitor_task(device, stat_r, sd_mon_r)
+            monitoring::monitor_task(device, stat_r, ir_r, conn, sd_mon_r)
         ),
         (
             "dump",
