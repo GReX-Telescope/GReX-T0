@@ -38,6 +38,7 @@ pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre:
     // Setup the exit handler
     let (sd_s, sd_cap_r) = broadcast::channel(1);
     let sd_mon_r = sd_s.subscribe();
+    let sd_db_r = sd_s.subscribe();
     let sd_inject_r = sd_s.subscribe();
     let sd_downsamp_r = sd_s.subscribe();
     let sd_dump_r = sd_s.subscribe();
@@ -174,8 +175,9 @@ pub async fn start_pipeline(cli: args::Cli) -> eyre::Result<Vec<JoinHandle<eyre:
     let mut these_handles = thread_spawn!(
         (
             "collect",
-            monitoring::monitor_task(device, stat_r, ir_r, conn, sd_mon_r)
+            monitoring::monitor_task(device, stat_r, sd_mon_r)
         ),
+        ("db", monitoring::db_task(conn, ir_r, sd_db_r)),
         (
             "dump",
             dumps::dump_task(

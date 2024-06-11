@@ -123,12 +123,32 @@ fn update_spec(device: &mut Device) -> eyre::Result<()> {
     Ok(())
 }
 
+pub fn db_task(
+    conn: Connection,
+    injection_events: Receiver<InjectionRecord>,
+    mut shutdown: broadcast::Receiver<()>,
+) -> eyre::Result<()> {
+    loop {
+        // Look for shutdown signal
+        if shutdown.try_recv().is_ok() {
+            info!("Monitoring task stopping");
+            break;
+        }
+        // If there's a new injection event, process that DB action
+        if let Ok(r) = injection_events.recv() {
+            match r.db_insert(&conn) {
+                Ok(_) => (),
+                Err(e) => warn!("Error processing DB event - {}", e),
+            }
+        }
+    }
+    Ok(())
+}
+
 /// The monitor task publishes updates about the capture statistics, queries FPGA state, and updates the SQLite database on events
 pub fn monitor_task(
     mut device: Device,
     capture_stats: Receiver<Stats>,
-    injection_events: Receiver<InjectionRecord>,
-    conn: Connection,
     mut shutdown: broadcast::Receiver<()>,
 ) -> eyre::Result<()> {
     info!("Starting monitoring task!");
@@ -137,14 +157,6 @@ pub fn monitor_task(
         if shutdown.try_recv().is_ok() {
             info!("Monitoring task stopping");
             break;
-        }
-
-        // If there's a new injection event, process that DB action
-        if let Ok(r) = injection_events.try_recv() {
-            match r.db_insert(&conn) {
-                Ok(_) => (),
-                Err(e) => warn!("Error processing DB event - {}", e),
-            }
         }
 
         // Blocking here is ok, these are infrequent events
