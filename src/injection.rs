@@ -19,6 +19,7 @@ use thingbuf::mpsc::{
 };
 use tokio::sync::broadcast;
 use tracing::info;
+use eyre::eyre;
 
 fn read_pulse(pulse_mmap: &Mmap) -> eyre::Result<ArrayView2<i8>> {
     let raw_bytes = pulse_mmap[..].as_slice_of::<i8>()?;
@@ -48,6 +49,11 @@ impl Injections {
                 Err(_) => None,
             })
             .collect();
+
+        // This could be empty
+        if pulse_files.is_empty() {
+            return Err(eyre!("No pulses to inject"))
+        }
 
         // Read all the pulses off the disk
         let mut pulses = vec![];
