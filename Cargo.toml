@@ -1,6 +1,6 @@
 [package]
 name = "grex_t0"
-version = "0.7.0"
+version = "0.0.0"
 edition = "2021"
 
 [dependencies]
@@ -20,7 +20,7 @@ socket2 = "0.5"
 
 # Math
 num-complex = "0.4"
-ndarray = "0.15"
+ndarray = "0.15" # Bump with netcdf
 
 # Time
 hifitime = "3"
@@ -37,7 +37,7 @@ serde_json = "1"
 sigproc_filterbank = "0.4"
 psrdada = "0.4"
 byte-slice-cast = "1"
-netcdf = "0.9"
+netcdf = "0.10"
 
 # Error Handling
 eyre = "0.6"
@@ -45,12 +45,13 @@ color-eyre = "0.6"
 thiserror = "1"
 
 # Logging Support
-rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
 actix-web = "4"
 tracing-actix-web = { version = "0.7", features = ["opentelemetry_0_22"] }
 prometheus = "0.13"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+### All the nonsense for opentelemetry
 opentelemetry = "0.22"
 opentelemetry_sdk = { version = "0.22", features = ["rt-tokio-current-thread"] }
 opentelemetry-otlp = { version = "0.15", features = ["logs"] }
@@ -63,10 +64,6 @@ thingbuf = { version = "0.1", features = ["static"] }
 arrayvec = "0.7"
 memmap2 = "0.9"
 pulp = "0.18"
-
-[patch.crates-io]
-# Once a new release of hdf5 is pushed, and netcdf follows, this can be removed
-hdf5-sys = { git = "https://github.com/aldanor/hdf5-rust" }
 
 [lib]
 name = "grex_t0"
