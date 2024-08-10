@@ -17,7 +17,7 @@ use tracing::{info, warn};
 use tracing_actix_web::TracingLogger;
 
 const MONITOR_ACCUMULATIONS: u32 = 1048576; // Around 8 second at 8.192us
-const TEMP_LIMIT_C: f32 = 68.0; // Any higher than this and the system might crash
+const TEMP_LIMIT_C: f32 = 63.0; // Any higher than this and the system might crash
 
 macro_rules! static_prom {
     ($name:ident, $kind: ty, $create:expr) => {
@@ -187,7 +187,7 @@ pub fn monitor_task(
             Ok(v) => {
                 // If we get too hot, we really need to bail
                 if v >= TEMP_LIMIT_C {
-                    warn!("Temperature is too hot - consider stopping");
+                    panic!("SNAP temperature too hot - powering down");
                 }
                 fpga_temp().set(v.into())
             },
