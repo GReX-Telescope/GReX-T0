@@ -13,7 +13,7 @@ use std::sync::{
     OnceLock,
 };
 use tokio::sync::broadcast;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 use tracing_actix_web::TracingLogger;
 
 const MONITOR_ACCUMULATIONS: u32 = 1048576; // Around 8 second at 8.192us
@@ -187,7 +187,8 @@ pub fn monitor_task(
             Ok(v) => {
                 // If we get too hot, we really need to bail
                 if v >= TEMP_LIMIT_C {
-                    panic!("SNAP temperature too hot - powering down");
+                    error!("SNAP temperature too hot - powering down");
+                    panic!();
                 }
                 fpga_temp().set(v.into())
             },
