@@ -184,7 +184,8 @@ impl DumpRing {
         let mjds = Array::linspace(mjd_start, mjd_end, this_dump_size as usize);
         mjd.put(.., mjds.view())?;
 
-        let mut pol = file.add_variable_with_type("pol", &["pol"], &netcdf::types::NcVariableType::String)?;
+        let mut pol =
+            file.add_variable_with_type("pol", &["pol"], &netcdf::types::NcVariableType::String)?;
         pol.put_attribute("long_name", "Polarization")?;
         pol.put_string("a", 0)?;
         pol.put_string("b", 1)?;
@@ -195,7 +196,8 @@ impl DumpRing {
         let freqs = Array::linspace(HIGHBAND_MID_FREQ, HIGHBAND_MID_FREQ - BANDWIDTH, CHANNELS);
         freq.put(.., freqs.view())?;
 
-        let mut reim = file.add_variable_with_type("reim", &["reim"], &netcdf::types::NcVariableType::String)?;
+        let mut reim =
+            file.add_variable_with_type("reim", &["reim"], &netcdf::types::NcVariableType::String)?;
         reim.put_attribute("long_name", "Complex")?;
         reim.put_string("real", 0)?;
         reim.put_string("imaginary", 1)?;
@@ -288,7 +290,7 @@ impl DumpRing {
             // Specnum is which spectrum heimdall found the pulse in.
             // So, the sample number of specnum 0 is the FIRST_PACKET that we processed and the sample number of specnum 1 is the downsample of samples FIRST_PACKET..=downsample_factor+FIRST_PACKET
             let true_sample =
-                tm.itime as u64 * (downsample_factor as u64) + FIRST_PACKET.load(Ordering::Acquire);
+                tm.itime * (downsample_factor as u64) + FIRST_PACKET.load(Ordering::Acquire);
 
             // Now find where in the block this sample lies (hopefully we didn't miss it, throwing an error if we did)
             // DUMP_SIZE is even, so we'll bias the sample one to the left
@@ -323,7 +325,7 @@ impl DumpRing {
 #[derive(Debug, Deserialize)]
 pub struct TriggerMessage {
     pub candname: String,
-    pub itime: u32,
+    pub itime: u64,
 }
 
 pub async fn trigger_task(
