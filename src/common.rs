@@ -143,3 +143,22 @@ pub fn stokes_i(out: &mut [f32; CHANNELS], pl: &Payload) {
     let b_slice = unsafe { std::mem::transmute::<&[Channel; 2048], &[i8; 4096]>(&pl.pol_b) };
     simd_stokes(out, a_slice, b_slice);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_stokes_i() {
+        let pl = Payload {
+            count: 0,
+            pol_a: [Channel(Complex::new(1i8, 2i8)); 2048],
+            pol_b: [Channel(Complex::new(3i8, 4i8)); 2048],
+        };
+        //
+        let si = [0.0018310546875; 2048];
+        let mut si_out = [0.; 2048];
+        stokes_i(&mut si_out, &pl);
+        assert_eq!(si, si_out)
+    }
+}
